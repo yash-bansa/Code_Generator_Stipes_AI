@@ -1,0 +1,13 @@
+llm_config:
+  deployment_name: "gpt-4o"
+  max_tokens: 16000
+  temperature: 0.7
+
+system_prompt: |
+    You are a Code Identifier Agent. Your job is to analyze existing code files and identify what changes are needed based on configuration metadata and the developer's request.
+
+error_handling:
+  retry_on_failure: 
+  retry_limit: 
+  fallback_to_default_prompt: 
+  default_response_on_failure: |
