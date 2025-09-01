@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Dict,Any,List, Optional, Literal, Union 
+from typing import Dict,Any,List, Optional, Literal, Union
 from pathlib import Path
 from datetime import datetime
 
@@ -34,11 +34,13 @@ class QueryEnhancerOutput(BaseModel):
     suggestions: List[str] = Field(default_factory=list)
     success: bool = True
     message: str = "Query enhanced successfully"
+    reason :str
+    change_type :str
 
 
 # -------------------------------
 # Master Planner Agent Contracts
-# -------------------------------  
+# -------------------------------
 
 
 class MasterPlannerInput(BaseModel):
@@ -73,7 +75,7 @@ class MasterPlannerOutput(BaseModel):
 
 # -------------------------------
 # Delta Analyzer Agent Contracts
-# -------------------------------  
+# -------------------------------
 
 class Modification(BaseModel):
     action: str
@@ -150,7 +152,7 @@ class CodeGeneratorOutput(BaseModel):
     execution_time: float = Field(default=0.0, description="Time taken for execution")
 
 
-#### code validator 
+#### code validator
 
 class FileToValidate(BaseModel):
     file_path: str = Field(..., description="Path to the file being validated")
@@ -162,15 +164,15 @@ class FileToValidate(BaseModel):
 class CodeValidatorInput(BaseModel):
     modified_files: List[FileToValidate] = Field(..., description="List of files to validate")
     validation_config: Optional[Dict[str, Any]] = Field(
-        default_factory=dict, 
+        default_factory=dict,
         description="Additional validation configuration options"
     )
     strict_mode: bool = Field(
-        default=False, 
+        default=False,
         description="Whether to use strict validation rules"
     )
     skip_warnings: bool = Field(
-        default=False, 
+        default=False,
         description="Whether to skip warning-level issues"
     )
 
@@ -208,7 +210,7 @@ class CodeValidatorOutput(BaseModel):
     success: bool = Field(..., description="Whether the validation process completed successfully")
     overall_status: str = Field(..., description="Overall validation status: passed/failed/warning")
     files_validated: List[FileValidationResult] = Field(
-        default_factory=list, 
+        default_factory=list,
         description="Detailed validation results for each file"
     )
     validation_summary: ValidationSummary = Field(..., description="Summary of validation results")
@@ -216,41 +218,41 @@ class CodeValidatorOutput(BaseModel):
     warnings: List[str] = Field(default_factory=list, description="All warnings found across files")
     suggestions: List[str] = Field(default_factory=list, description="All suggestions across files")
     execution_time: float = Field(..., description="Time taken for validation in seconds")
-    timestamp: datetime = Field(default_factory=datetime.now, description="When validation was performed")    
+    timestamp: datetime = Field(default_factory=datetime.now, description="When validation was performed")
 
 class BotStateSchema(BaseModel):
     latest_query: str
     user_history: List[str]
     current_user: Optional[str] = "default_user"  # NEW: Add current user field
-    
+
     # Communication Agent Output
     core_intent: Optional[str] = ""
     context_notes: Optional[str] = ""
     communication_success: bool = False
-    
+
     # Query Rephraser Agent Output
     developer_task: Optional[str] = ""
     is_satisfied: bool = False
     suggestions: List[str] = []
     enhancement_success: bool = False
-    
+
     # Master Planner Agent Output
     master_planner_success: bool = False
     master_planner_message: Optional[str] = ""
     master_planner_result: List[TargetFileOutput] = Field(default_factory=list)
     parsed_config: Optional[Dict[str, Any]] = Field(default_factory=dict)  # Store parsed config for Delta Analyzer
-    
+
     # Delta Analyzer Agent Output
     delta_analyzer_success: bool = False
     delta_analyzer_message: Optional[str] = ""
     delta_analyzer_result: Optional[DeltaAnalyzerOutput] = None  # UPDATED: Store complete Delta Analyzer output
     modification_plan: Optional[Dict[str, Any]] = Field(default_factory=dict)  # Keep for backward compatibility
-    
+
     # Code Generator Agent Output - NEW SECTION
     code_generator_success: bool = False
     code_generator_message: Optional[str] = ""
     code_generator_result: Optional[CodeGeneratorOutput] = None
-    
+
     # Code Validator Agent Output - NEW SECTION
     code_validator_success: bool = False
     code_validator_message: Optional[str] = ""
