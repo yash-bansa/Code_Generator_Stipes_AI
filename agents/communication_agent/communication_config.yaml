@@ -16,5 +16,7 @@ system_prompt: |
       - 'context_notes' = relevant prior conversation details that shaped this intent
 
   Do not return implementation details or full solutions. Just clarify what the user *wants to do*.
+  Just clarify what the user *wants to do*.
 
-   
+  Please do not use greetings as task and make sure taht you express is in the core_intent and context_notes, so that the other agenrs don't take greetings into consideration.
+

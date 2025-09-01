@@ -28,6 +28,18 @@ class QueryRephraserAgent:
 Conversation Context:
 {input_data.context_notes or 'None'}
 
+Note :- 
+- if some information or file name is asked to remove or not include then please remove that file name and information from the final developer task.
+- if you are asked to replace any file name by the user with a new name then the final task must have only the latest version of the file name in developer task.
+
+Important for final Developer task :-
+- the final developer task have only files which are included for analysis not excluded and removed files.
+- Make sure the complete file name should be their while creating developer task if provided in input.
+
+In case of a greeting ask the user to give the relavant queries by suggestions that the query can either be related to code change or config change .
+in case of greeting return the change_type as not valid and developer_task as not relevant.
+
+
 Return JSON with rephrased developer task, satisfaction flag, and any suggestions.
 """
 
@@ -50,7 +62,9 @@ Return JSON with rephrased developer task, satisfaction flag, and any suggestion
                 is_satisfied=False,
                 suggestions=["LLM returned invalid format."],
                 success=False,
-                message="Validation or JSON parsing error"
+                message="Validation or JSON parsing error",
+                reason = "Not able to process the response",
+                change_type = "not found"
             )
         except Exception as e:
             logger.error(f"[QueryRephraserAgent] Unexpected LLM error: {e}")
@@ -59,7 +73,9 @@ Return JSON with rephrased developer task, satisfaction flag, and any suggestion
                 is_satisfied=False,
                 suggestions=["Unexpected system error."],
                 success=False,
-                message="Unexpected LLM error"
+                message="Unexpected LLM error",
+                reason = "Not able to process the response",
+                change_type = "not found"
             )
 
     def _extract_json(self, response: str) -> str:

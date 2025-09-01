@@ -34,6 +34,8 @@ class QueryEnhancerOutput(BaseModel):
     suggestions: List[str] = Field(default_factory=list)
     success: bool = True
     message: str = "Query enhanced successfully"
+    reason :str
+    change_type :str
 
 
 # -------------------------------
