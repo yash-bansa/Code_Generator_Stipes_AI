@@ -1,0 +1,23 @@
+{
+"data_sources":
+[{"name":"mock_student_scores",
+  "type":"file",
+  "connection_params":{"path":"./examples/sample_project/data_loader.py"},
+  "tables_or_files":["in_memory"]}],
+"transformations":[{"name":"mark_passed_students",
+                    "type":"custom",
+                    "parameters":{"logic":"df['passed'] = df['score'] > 80"},
+                    "input_sources":["mock_student_scores"],
+                    "output_target":"passed_flag"}],
+"outputs":[{"name":"console_output",
+          "type":"file",
+          "format":"stdout",
+          "location":"",
+          "schema":{"columns":["c_id","name","score","passed"]}}],
+"dependencies":["pandas"],
+"processing_config":{"batch_size":100,"parallel_processing":false,"error_handling":"continue"},
+"metadata":{"description":"Pipeline loads hardcoded data and applies pass/fail flag",
+"version":"1.0",
+"created_by":"data.engineer@company.com",
+"last_modified":"2025-06-10"},
+"validation":{"is_valid":true,"errors":[],"warnings":[],"suggestions":[]}}
