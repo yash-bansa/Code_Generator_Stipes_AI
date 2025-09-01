@@ -32,7 +32,7 @@ Extract:
 2. context_notes: relevant hints from earlier turns
 Return as JSON object.
 
-Note :- 
+Note :-
  - if the User ask you to remove any file name or information please be adhere to that so that we that we have only required information.
  - in case of a greting, make sure that you dont make up a task in core_intent or context_notes.
   just say that it is a greeting in core_intent and context_notes.

@@ -28,7 +28,7 @@ class QueryRephraserAgent:
 Conversation Context:
 {input_data.context_notes or 'None'}
 
-Note :- 
+Note :-
 - if some information or file name is asked to remove or not include then please remove that file name and information from the final developer task.
 - if you are asked to replace any file name by the user with a new name then the final task must have only the latest version of the file name in developer task.
 
