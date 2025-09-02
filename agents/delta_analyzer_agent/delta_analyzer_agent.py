@@ -28,17 +28,20 @@ class DeltaAnalyzerAgent:
             return {"modifications": []}
         
         # Handle both full paths and filenames
+        file_content = ""
         try:
-            if "/" not in file_path and "\\" not in file_path:
+            if file_path:
                 working_file_path = Path.cwd() / file_path
+                print("in if")
                 logger.info(f"[DeltaAnalyzerAgent] Using filename only: {file_path}")
-                file_content = f"# Mock content for {file_path} - file may not exist on disk"
+                file_content = FileHandler.read_file(working_file_path)
             else:
+                print("in else")
                 working_file_path = Path(file_path)
                 file_content = FileHandler.read_file(working_file_path)
         except Exception as e:
             logger.warning(f"[DeltaAnalyzerAgent] Could not read file {file_path}: {e}")
-            # file_content = self._create_mock_file_content(target_file)
+            file_content = f"# could not read file {file_path} : {e}"
 
         # Enhanced input extraction with safe structure handling
         file_analysis = target_file.get('analysis', {})
@@ -75,6 +78,7 @@ class DeltaAnalyzerAgent:
                 return {
                     **parsed.dict(),
                     "file_path": file_path,
+                    "original_file_content" : file_content,
                     "timestamp": file_info.get('modified', 0),
                     "original_priority": file_analysis.get('priority', 'medium'),
                     "modification_type": file_analysis.get('modification_type', 'general'),
@@ -86,7 +90,8 @@ class DeltaAnalyzerAgent:
         except Exception as e:
             logger.error(f"[DeltaAnalyzerAgent] Error analyzing file {file_path}: {e}")
         
-        return {"modifications": []}
+        return {"modifications": [],
+                "original_file_content" : file_content}
 
     def _build_comprehensive_prompt(self, input_data: DeltaAnalyzerInput,
                                   file_info: Dict[str, Any],
@@ -258,11 +263,7 @@ Return ONLY a valid JSON object with detailed code changes that directly address
                 "priority": getattr(target_file, 'priority', 'medium')
             }
         
-        # # Ensure structure is not None
-        # if file_dict.get('structure') is None:
-        #     file_dict['structure'] = {}
-        #     logger.info(f"Fixed None structure for {file_dict.get('file_path', 'unknown')}")
-        
+       
         # Ensure analysis is also converted if it's a Pydantic object
         analysis = file_dict.get('analysis')
         if analysis and hasattr(analysis, 'dict'):
@@ -318,6 +319,7 @@ Return ONLY a valid JSON object with detailed code changes that directly address
         analysis["action_words"] = [word for word in action_words if word in query_lower]
         
         return analysis
+    
 
     def _calculate_alignment_score(self, suggestions: Dict[str, Any], user_query: str) -> float:
         """Calculate how well the suggestions align with user query"""

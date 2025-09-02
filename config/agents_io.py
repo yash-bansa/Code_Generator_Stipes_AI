@@ -86,21 +86,26 @@ class Modification(BaseModel):
     new_code: str
     explanation: str
     affects_dependencies: Optional[List[str]] = Field(default_factory=list)  # KEEP
+    user_intent_alignment : Optional[float] = 0.0
 
 class DeltaAnalyzerInput(BaseModel):
     file_path: str
     file_content: str
-    file_analysis: Dict[str, Any]  # Contains cross_dependencies already
-    config: Dict[str, Any]
+    file_analysis: Dict[str, Any] = Field(default_factory=dict) # Contains cross_dependencies already
+    config: Dict[str, Any] = Field(default_factory=dict)
+    user_query : str = ""
     # NO additional fields needed - keep it clean
 
 class DeltaAnalyzerOutput(BaseModel):
-    modifications: List[Modification]
+    modifications: List[Modification] = Field(default_factory=list) 
     new_dependencies: List[str] = Field(default_factory=list)
     testing_suggestions: List[str] = Field(default_factory=list)
     potential_issues: List[str] = Field(default_factory=list)
     cross_file_impacts: Optional[List[str]] = Field(default_factory=list)      # KEEP
     implementation_notes: Optional[List[str]] = Field(default_factory=list)    # KEEP
+    user_query_analysis : Dict[str, Any] = Field(default_factory=dict)
+    alignment_score :Optional[float] = 0.0
+    original_file_content : Optional[str] = Field(default="")
 
 ###### Code Generator Agent
 
