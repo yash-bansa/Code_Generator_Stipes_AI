@@ -223,7 +223,7 @@ class CodeValidatorOutput(BaseModel):
     warnings: List[str] = Field(default_factory=list, description="All warnings found across files")
     suggestions: List[str] = Field(default_factory=list, description="All suggestions across files")
     execution_time: float = Field(..., description="Time taken for validation in seconds")
-    timestamp: datetime = Field(default_factory=datetime.now, description="When validation was performed")
+    timestamp: Optional[str]
 
 class BotStateSchema(BaseModel):
     latest_query: str
