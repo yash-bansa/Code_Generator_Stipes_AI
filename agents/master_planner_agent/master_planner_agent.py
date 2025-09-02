@@ -2,7 +2,7 @@ import json
 import re
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set, Tuple
 import yaml
 from pydantic import ValidationError, BaseModel
 from config.agents_io import (
@@ -12,8 +12,11 @@ from config.agents_io import (
     FileAnalysisResult
 )
 from utils.llm_client import llm_client
+from ast import literal_eval
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
 class MasterPlannerAgent:
     def __init__(self):
         config_path = Path(__file__).parent / "master_planner_config.yaml"
@@ -151,20 +154,27 @@ class MasterPlannerAgent:
         
         prompt = f"""
 You are a Code Identifier Agent that creates detailed file modification plans based on RAG (Retrieval-Augmented Generation) analysis output.
+
 USER QUERY: "{user_query}"
+
 RAG ANALYSIS RESULT:
 {rag_output}
+
 CONFIGURATION:
 {json.dumps(config, indent=2)}
+
 SPECIFIC FILES MENTIONED BY USER: {specific_files or "None"}
 TASK:
 Based on the RAG analysis output, identify which files need to be created or modified and provide detailed specifications for each file.
 INSTRUCTIONS:
 1. **Extract File Information**: From the RAG output, identify all files that need to be created or modified
-2. **Create File Specifications**: For each file, provide detailed information including:
+2. ** Migration Query Information** : if its migration please takes all files under consideration irrespective of the file type, Functionality and and requirement make all files be there in the plan.
+3. **Identify Cross-File Dependencies** : For each file, determine which other files it depends on or affects
+4. **Create File Specifications**: For each file, provide detailed information including:
    - Complete file path (can be relative or absolute as provided by RAG)
    - Detailed analysis of what needs to be modified
    - Priority level based on importance
+   - Cross-file dependencies and relationships
 3. **Handle Different File Types**:
    - **Existing files to modify**: Extract current structure and modification requirements
    - **New files to create**: Provide complete specifications for creation
@@ -174,6 +184,13 @@ INSTRUCTIONS:
    - Core functionality files = HIGH priority
    - Supporting/utility files = MEDIUM priority
    - Test/documentation files = LOW priority
+
+   ** IMPORTANT Note**:
+   - if Their is any change related to migration or upgrate the pyspark version use that as a migration as modification type.
+   - U must follow the format of the file_path mentioned below in the response format. Don't use backslash, make sure to use forward slash.
+   - Always provide the complete file_path, do not deviate from it.
+   - Don't any new file which is not present in rag output strictly.
+
 RESPONSE FORMAT (JSON only):
 {{
   "identified_files": [
@@ -191,6 +208,13 @@ RESPONSE FORMAT (JSON only):
         "is_python": true
       }},
       "rag_context": "relevant context from RAG output for this file"
+      "cross_file_dependencies": {{
+        "depends_on": ["path/to/dependency1.py"]
+        "affects": ["path/to/affected1.py"]
+        "imports_from": ["module1"]
+        "imported_by": ["file1.py"]
+        "dependency_reason": "explanation of why these dependencies exist"
+      }}
     }}
   ],
   "analysis_summary": "summary of the file identification based on RAG output",
@@ -199,12 +223,18 @@ RESPONSE FORMAT (JSON only):
 }}
 **IMPORTANT REQUIREMENTS**:
 - Base ALL file identification on the RAG analysis output
+- Include comprehensive cross-file dependency analysis
 - If RAG mentions specific files, include them with appropriate priority
 - If user mentioned specific files, ensure they are included with high priority
 - Create complete file specifications even if files don't exist (RAG may suggest new files)
 - Include detailed structure information for each file
 - Provide comprehensive reasoning based on RAG analysis
 - Don't add files not mentioned or implied by RAG analysis
+- if RAG mention to include all the files then use all files irrespective of the working and requirement.
+
+** Important Note**:
+- For user query related to the migration please include all the files mentioned in the list for the modification.
+
 Return ONLY the JSON response with no additional text.
 """
         try:
@@ -242,12 +272,27 @@ Return ONLY the JSON response with no additional text.
         file_info = file_analysis.get('file_info', {})
         # structure = file_analysis.get('structure', {})
         
+        cross_file_deps = file_analysis.get("cross_file_dependencies", {})
+        if cross_file_deps is None:
+            cross_file_deps = None
+        elif isinstance(cross_file_deps, dict):
+            safe_cross_file_deps = {
+                 "depends_on": cross_file_deps.get("depends_on",[]) or [],
+                 "affects": cross_file_deps.get("affects",[]) or [],
+                 "imports_from": cross_file_deps.get("imports_from",[]) or [],
+                 "imported_by": cross_file_deps.get("imported_by",[]) or [],
+                 "dependency_reason": cross_file_deps.get("dependency_reason",'') or '',
+            }
+
+            cross_file_deps = safe_cross_file_deps if any(safe_cross_file_deps.values()) else None
+        
         # Create FileAnalysisResult without suggested_changes and cross_file_dependencies
         analysis_result = FileAnalysisResult(
             needs_modification=file_analysis.get('needs_modification', True),
             modification_type=file_analysis.get('modification_type', 'general'),
             priority=file_analysis.get('priority', 'medium'),
-            reason=file_analysis.get('reason', 'Identified by RAG analysis')
+            reason=file_analysis.get('reason', 'Identified by RAG analysis'),
+            cross_file_dependencies = cross_file_deps
             # Removed: suggested_changes and cross_file_dependencies
         )
         # Create TargetFileOutput
@@ -288,6 +333,10 @@ Return ONLY the JSON response with no additional text.
         
         logger.info(f"Extracted specific files: {valid_files}")
         return valid_files
+    
+    def _has_file_content_in_rag(self, rag_result: str) -> bool:
+        return bool(rag_result and len(rag_result.strip()) > 50)
+    
     def _clean_json_response(self, response: str) -> str:
         """Clean and extract JSON from LLM response."""
         # Remove markdown code blocks
