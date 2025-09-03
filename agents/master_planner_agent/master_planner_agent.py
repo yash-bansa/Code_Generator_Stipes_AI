@@ -175,11 +175,11 @@ INSTRUCTIONS:
    - Detailed analysis of what needs to be modified
    - Priority level based on importance
    - Cross-file dependencies and relationships
-3. **Handle Different File Types**:
+5. **Handle Different File Types**:
    - **Existing files to modify**: Extract current structure and modification requirements
    - **New files to create**: Provide complete specifications for creation
    - **Configuration files**: Include any config files mentioned in RAG output
-4. **Priority Rules**:
+6. **Priority Rules**:
    - Files specifically mentioned by user = HIGH priority
    - Core functionality files = HIGH priority
    - Supporting/utility files = MEDIUM priority
@@ -199,7 +199,7 @@ RESPONSE FORMAT (JSON only):
       "file_name": "file.py",
       "priority": "high|medium|low",
       "needs_modification": true,
-      "modification_type": "data_loading|data_transformation|configuration|testing|utility|new_file",
+      "modification_type": "data_loading|data_transformation|configuration|testing|utility|new_file|Migration",
       "reason": "detailed explanation from RAG analysis",
       "file_info": {{
         "size": 0,
@@ -227,7 +227,7 @@ RESPONSE FORMAT (JSON only):
 - If RAG mentions specific files, include them with appropriate priority
 - If user mentioned specific files, ensure they are included with high priority
 - Create complete file specifications even if files don't exist (RAG may suggest new files)
-- Include detailed structure information for each file
+- Include detailed dependency relationships and reasoning
 - Provide comprehensive reasoning based on RAG analysis
 - Don't add files not mentioned or implied by RAG analysis
 - if RAG mention to include all the files then use all files irrespective of the working and requirement.
@@ -289,7 +289,7 @@ Return ONLY the JSON response with no additional text.
         # Create FileAnalysisResult without suggested_changes and cross_file_dependencies
         analysis_result = FileAnalysisResult(
             needs_modification=file_analysis.get('needs_modification', True),
-            modification_type=file_analysis.get('modification_type', 'general'),
+            modification_type=file_analysis.get('modification_type', 'utility'),
             priority=file_analysis.get('priority', 'medium'),
             reason=file_analysis.get('reason', 'Identified by RAG analysis'),
             cross_file_dependencies = cross_file_deps
@@ -356,3 +356,156 @@ Return ONLY the JSON response with no additional text.
         response = response.replace("True", "true").replace("False", "false")
         response = re.sub(r",\s*([}\]])", r"\1", response)  # Remove trailing commas
         return response.strip()
+    
+    async def detect_migration_with_llm(self,user_query: str) -> Dict[str, Any] :
+
+        detection_prompt = f"""
+    Analyze this user query to determine if its requesting code migartion or regular modifications.
+
+    USER QUERY: "{user_query}"
+
+    Determine:
+    1. Is this a migration request (moving from one Framework/version to another)?
+    2. Or is this a regular modification request (adding features, fixing bugs, etc.)?
+
+    Consider these as Migration:
+    -Framework changes (Django to Flask , React to Vue, etc.)
+    - Version upgrades (Python 2 to 3 , Django 3.2 to 4.2, etc.)
+    - Technology conversions (REST to GraphQL, SQL to NoSQL, etc.)
+    - Modernization of entire codebase 
+
+    Consider these as MODIFICATION:
+    - Adding new features or functions 
+    - Bug fixes and improvements 
+    - Code Optimization 
+    - Adding database migration (not code migration)
+    - Configuration changes 
+    - Adding tests or documentation
+
+    Return JSON:
+    {{
+    "is_migration" : true/false,
+    "confidence": 0.0 - 1.0,
+    "reasoning" : "explanation of decision",
+    "migration_details" : {{
+        "source": "detected source technology/version",
+        "target": "detected target technology/version",
+        "type" : "framework_change|version_upgrade|modernization"
+    }}
+    }}
+""" 
+        try:
+            response = await llm_client.chat_completion(
+                messages=[{"role": "user", "content": detection_prompt}],
+                system_prompt="you are an expert at analyzing code modification requests. Be precise in distinguishing migration vs modification requests",
+                temperature=0.1
+            )
+
+            raw_content = response.strip()
+
+            if raw_content.startswith("'''","```"):
+                lines = raw_content.splitlines()
+                raw_content = "\n".join(lines[1:-1]).strip()
+
+            detection_result = json.loads(raw_content)
+
+            if detection_result.get("confidence", 0) >= 0.8:
+                return detection_result
+
+            return {"is_migration" :False , "confidence" : detection_result.get("confidence", 0.0)}
+        
+        except Exception as e:
+            print(f"LLM migration detection failed : {e}")
+            return {"is_migration" : False, "confidence" : 0.0}
+
+    async def extract_repos_from_query(self,query:str) -> list:
+
+        repo_list = ["repo1","repo2"] 
+
+        DEFAULT_REPO = "repo1"
+
+        system_prompt = (
+            "Extract all repository names from the following user query."
+            "Return only a valid Python list of strings. Example: ['repo1','repo2']"
+        )
+
+        try:
+            response = await llm_client.chat_completion(
+                messages=[{"role": "user", "content": query}],
+                system_prompt=system_prompt,
+                temperature=0.1
+            )
+            extracted_list = literal_eval(response) if response.startswith("[") else []
+
+            print(f"Extracted Repos : {extracted_list}")
+
+            matched_repos = [
+                r for r in extracted_list
+                if any(r.lower() == valid.lower() for valid in repo_list)
+            ]
+
+            return matched_repos if matched_repos else [DEFAULT_REPO]
+        
+        except Exception as e :
+            print(f"LLM Extraction failed: {e}")
+            return [DEFAULT_REPO]
+        
+    async def detect_migration_type_with_llm(self, user_query: str) -> bool:
+
+        prompt = f"""
+    You are an intelligent agent tasked to classify the type of code migration based on a users query.
+    The task is to determine wheather the query is referring to one of the following:
+    1. Repository-level migration (moving or updating an entire repository).
+    2. Single file migration(modification for one specific file only).
+    3. multiple files migration (changes involving a subset of files like a batch).
+
+    Your output must strictly be one of the following:
+    -"repository_migration"
+    -"single_file_migration"
+    -"multiple_files_migration"
+
+    If the query does not give enough context, default to "repository_migration"
+
+    examples-
+    1. Can you help migrate file1.py? --- "single_file_migration"
+    2. Can you help migrate file1.py and file2.py? --- "multiple_files_migration"
+    3. I want to migrate the entire repo reponame ? --- "repository_migration"
+
+    INSTRUCTIONS:- 
+    - So if any specific python file name is mention it was single or multiple file migration.
+    - And if no python names are present or repo name is present then it was repository migration.
+
+    Here  is the user query:
+
+    ---
+    Query: "{user_query}"
+    ---
+    What type of migration does this query refer to? Respond only with the type (no explanations).
+"""    
+        try:
+            raw_response = await llm_client.chat_completion(
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            possible_types = [
+                "single_file_migration",
+                "multiple_files_migration"
+            ]
+
+            migration_type = raw_response.strip().lower()
+            print(migration_type)
+
+            if migration_type == "repository_migration":
+                return True
+            else:
+                return False
+        
+        except Exception as e:
+            return True   
+
+        
+    
+
+        
+
+         

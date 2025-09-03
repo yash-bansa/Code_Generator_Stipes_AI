@@ -4,7 +4,8 @@ llm_config:
   temperature: 0.7
 
 system_prompt: |
-    You are a Code Identifier Agent. Your job is to analyze existing code files and identify what changes are needed based on configuration metadata and the developer's request.
+    You are a Code Identifier Agent. Your job is to analyze existing code files and 
+    identify what changes are needed based on configuration metadata and the developer's request.
 
 error_handling:
   retry_on_failure: 

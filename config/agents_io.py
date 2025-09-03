@@ -42,28 +42,37 @@ class QueryEnhancerOutput(BaseModel):
 # Master Planner Agent Contracts
 # -------------------------------
 
-
 class MasterPlannerInput(BaseModel):
     parsed_config: Dict[str, Any]
-    # project_path: Path
     user_question: str
 
 
 class FileAnalysisResult(BaseModel):
     needs_modification: bool
     modification_type: Optional[
-        Literal["data_loading", "data_transformation", "output_handling", "configuration", "utility"]
+        Literal[
+                "data_loading",
+                "data_transformation", 
+                "output_handling", 
+                "configuration",
+                "utility",
+                "new_file",
+                "dependency_update",
+                "testing",
+                "Migration",
+                ]
     ] = ""
     priority: Literal["high", "medium", "low"] = "low"
     reason: str
-    # suggested_changes: List[SuggestedChange] = Field(default_factory=list)
-    # cross_file_dependencies: List[CrossFileDependency] = Field(default_factory=list)
+    cross_file_dependencies : Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Cross-file dependencies with keys : depends_on, affects, imports_from, imported_by, dependency_reason"
+    )
 
 
 class TargetFileOutput(BaseModel):
     file_path: str
     file_info: Dict[str, Any]
-    # structure: Dict[str, Any]
     analysis: FileAnalysisResult
     priority: Literal["high", "medium", "low"]
 
