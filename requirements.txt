@@ -26,3 +26,4 @@ fastapi
 redis
 poetry
 pipenv
+psycopg2
