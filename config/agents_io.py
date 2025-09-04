@@ -116,6 +116,40 @@ class DeltaAnalyzerOutput(BaseModel):
     alignment_score :Optional[float] = 0.0
     original_file_content : Optional[str] = Field(default="")
 
+
+# -------------------------------
+# Document generator Agent Contracts
+# -------------------------------
+
+class DocumentGeneratorInput(BaseModel):
+    developer_task_query : str
+
+class DocumentGeneratorOutput(BaseModel):
+    generated_doc : str
+    success: bool = True
+    message: str = "Document generated successfully"
+
+class SearchResult(BaseModel):
+    file_path:str
+    name: str
+    type :str
+    relevance_score: float
+    enhanced_content : str =  ""
+    parent_class : Optional[str] = None
+    match_reason : str = ""
+    rich_metadata : Optional[str] = None
+
+# -------------------------------
+# Dependency Analyzer Agent Contracts
+# -------------------------------
+
+class DependencyAnalyzerInput(BaseModel):
+    user_query: str
+    config: Dict[str, Any]
+
+class DependencyAnalyzerOutput(BaseModel):
+    updated_config : Dict[str, Any]
+
 ###### Code Generator Agent
 
 # Code Generator Models

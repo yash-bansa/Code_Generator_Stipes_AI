@@ -12,12 +12,17 @@ from .communication_agent.Communication_agent import CommunicationAgent
 from .master_planner_agent.master_planner_agent import MasterPlannerAgent
 from .delta_analyzer_agent.delta_analyzer_agent import DeltaAnalyzerAgent
 from .code_generator_agent.code_generator_agent import CodeGeneratorAgent
-
+from .Document_generation_agent.document_generation_agent import DocumentGeneratorAgent
+from .code_validator_agent.code_validator_agent import CodeValidatorAgent
+from .dependency_analyzer_agent.dependency_analyzer_agent import DependencyExtractorAgent
 
 __all__ = [
+    "CodeValidatorAgent",
+    "DependencyExtractorAgent",
     "CodeGeneratorAgent",
     "QueryRephraserAgent",
     "CommunicationAgent",
     "MasterPlannerAgent",
-    'DeltaAnalyzerAgent'
+    'DeltaAnalyzerAgent',
+    'DocumentGeneratorAgent'
 ]

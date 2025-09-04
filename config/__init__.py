@@ -27,9 +27,19 @@ from .agents_io import (
     CodeMetrics,
     CodeValidatorOutput,
     FileValidationResult,
-    ValidationSummary,)
+    ValidationSummary,
+    DependencyAnalyzerInput,
+    DependencyAnalyzerOutput,
+    SearchResult,
+    DocumentGeneratorOutput,
+    DocumentGeneratorInput)
 
 __all__ = [
+    "DependencyAnalyzerInput",
+    "DependencyAnalyzerOutput",
+    "SearchResult",
+    "DocumentGeneratorOutput",
+    "DocumentGeneratorInput",
     'FileToValidate',
     'CodeValidatorInput',
     'CodeMetrics',
