@@ -28,3 +28,5 @@ poetry
 pipenv
 psycopg2
 langfuse
+fastapi
+uvicorn
