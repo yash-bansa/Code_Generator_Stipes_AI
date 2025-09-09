@@ -27,3 +27,4 @@ redis
 poetry
 pipenv
 psycopg2
+langfuse

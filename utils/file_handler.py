@@ -153,3 +153,25 @@ class FileHandler:
         except Exception as e:
             print(f"Error getting file info for {file_path}: {e}")
             return {}
+    
+    @staticmethod
+    async def _scan_repository(repo_path: str) -> List[str]:
+        files = []
+        try:
+            supported_extentions = {'.py' , '.js', '.ts','.java','.go','.rs','.cpp','.c'}
+
+            for root, dirs, filenames in os.walk(repo_path):
+
+                dirs[:] = [d for d in dirs if not d.startswith(',') and d not in {'node_modules', '__pycache','venv'}]
+                
+                for filename in filenames:
+                    if any(filename.endswith(ext) for ext in supported_extentions):
+                        file_path = os.path.join(root, filename)
+                        files.append(file_path)
+
+                    return files
+        except Exception as e:
+            print(f"Error getting file info for {file_path} : {e}")
+            return files     
+    
+

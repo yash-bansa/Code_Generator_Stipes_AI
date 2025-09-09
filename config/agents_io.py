@@ -283,25 +283,28 @@ class BotStateSchema(BaseModel):
     is_satisfied: bool = False
     suggestions: List[str] = []
     enhancement_success: bool = False
+    change_type: Optional[str] = ""
 
     # Master Planner Agent Output
     master_planner_success: bool = False
     master_planner_message: Optional[str] = ""
     master_planner_result: List[TargetFileOutput] = Field(default_factory=list)
     parsed_config: Optional[Dict[str, Any]] = Field(default_factory=dict)  # Store parsed config for Delta Analyzer
+    master_planner_approved: Optional[bool] = None
+    updated_config :Optional[str] = ""
 
     # Delta Analyzer Agent Output
     delta_analyzer_success: bool = False
     delta_analyzer_message: Optional[str] = ""
-    delta_analyzer_result: Optional[DeltaAnalyzerOutput] = None  # UPDATED: Store complete Delta Analyzer output
+    delta_analyzer_result: Optional[Union[Dict[str,Any], str]] = Field(default_factory=dict, description= "Delta analyzer modification")  # UPDATED: Store complete Delta Analyzer output
     modification_plan: Optional[Dict[str, Any]] = Field(default_factory=dict)  # Keep for backward compatibility
 
     # Code Generator Agent Output - NEW SECTION
     code_generator_success: bool = False
     code_generator_message: Optional[str] = ""
-    code_generator_result: Optional[CodeGeneratorOutput] = None
+    code_generator_result: Optional[Union[str,CodeGeneratorOutput]] = None
 
     # Code Validator Agent Output - NEW SECTION
     code_validator_success: bool = False
     code_validator_message: Optional[str] = ""
-    code_validator_result: Optional[CodeValidatorOutput] = None
+    code_validator_result: Optional[Union[str,CodeValidatorOutput]] = None
