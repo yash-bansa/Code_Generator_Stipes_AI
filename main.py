@@ -520,7 +520,7 @@ async def chat_endpoint(data: dict):
             session_manager_redis.add_to_session_history(current_state.current_user, message)
             current_state.user_history.append(message)
             current_state.latest_query = message
-            logger.info(f"Initial query processed: {query.message[:50]}...")
+            logger.info(f"Initial query processed: {message[:50]}...")
         elif query_type == "intermediate":
                 # Handle query refinement - RESTART WORKFLOW WITH NEW QUERY
             if session["current_stage"] == "query_refinement_needed":
