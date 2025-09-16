@@ -16,13 +16,14 @@ import asyncpg
 from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
 from config.agents_io import DocumentGeneratorInput, DocumentGeneratorOutput, SearchResult
 from utils.llm_client import llm_client
+import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 load_dotenv()
-SCHEMA_NAME = os.getenv("PG_SCHEMA_NAME")
+SCHEMA_NAME = os.getenv("PG_DB_SCHEMA")
 file_embeddings = os.getenv("PG_COLLECTION_FILE_NAME")
 class_embeddings = os.getenv("PG_COLLECTION_CLASS_NAME")
 function_embeddings = os.getenv("PG_COLLECTION_FUNCTION_NAME")
@@ -77,6 +78,7 @@ class SimpleDatabase:
 
     async def get_file_info_for_vector(self, search_level, conn, query_embedding_str, repo_id, limit):
         if search_level == "file" or search_level == "all":
+            print("inside get_file_info_for_vector")
             file_results = await conn.fetch(f"""
                 SELECT 'file' as type, file_path, file_path as name,
                         embedding <=> $1 as distance,
@@ -92,6 +94,7 @@ class SimpleDatabase:
 
     async def get_class_info_for_vector(self, search_level, conn, query_embedding_str, repo_id, limit):
         if search_level == "class" or search_level == "all":
+            print("inside get_class_info_for_vector")
             class_results = await conn.fetch(f"""
                 SELECT 'class' as type, file_path, class_name as name,
                         embedding <=> $1 as distance,
@@ -107,6 +110,7 @@ class SimpleDatabase:
 
     async def get_function_info_for_vector(self, search_level, conn, query_embedding_str, repo_id, limit):
         if search_level == "function" or search_level == "all":
+            print("inside get_function_info_for_vector")
             function_results = await conn.fetch(f"""
                 SELECT 'function' as type, file_path, function_name as name,
                         embedding <=> $1 as distance,
@@ -227,7 +231,7 @@ class SimpleDocumentGenerator:
     def __init__(self):
         self.database_config = self.load_database_config()
         self.simple_database_obj = SimpleDatabase(self.database_config)
-        self.embedding_client, self.llm_client = self.initialize_azure_clients()
+        self.llm_client = llm_client
         self.logger = logging.getLogger(__name__)
 
     async def get_simpledatabase_obj(self):
@@ -235,25 +239,6 @@ class SimpleDocumentGenerator:
         simple_database_obj = SimpleDatabase(database_config)
         await simple_database_obj.initialize()
         return simple_database_obj
-
-    def initialize_azure_clients(self):
-        """Initialize Azure OpenAI clients with proper error handling."""
-        try:
-            embedding_client = AzureOpenAIEmbeddings(
-                model = os.getenv("AZURE_OPENAI_EMBEDDING_MODEL"),
-                azure_endpoint = os.getenv("AZURE_OPENAI_BASE_URL"),
-                api_key = os.getenv("AZURE_OPENAI_API_KEY"),
-                api_version = os.getenv("AZURE_API_VERSION")
-            )
-
-
-            print("Azure OpenAI clients initialized successfully")
-            return embedding_client, llm_client
-
-        except Exception as e:
-            print(f"Failed to initialize Azure clients: {e}")
-            return None, None
-
 
     def load_database_config(self):
         """Load database configuration from environment."""
@@ -591,36 +576,52 @@ class SimpleDocumentGenerator:
     # Tool 2 : Hybrid Search (Vector + Metadata)
     # ========================================================================================================
 
+    async def _create_embedding(self, content: str) -> List[float]:
+        url = os.getenv("TIGER_EMBEDDING_BASE_URL")
+        api_key = os.getenv("TIGER_EMBEDDING_API_KEY")
+        model = os.getenv("TIGER_EMBEDDING_MODEL_NAME")
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        data = {"model": model, "input": content}
+        try:
+            response = requests.post(url, json=data, headers=headers, verify=False)
+            return response.json()['data'][0]['embedding']
+        except Exception as e:
+            self.logger.warning(f"Embedding creation failed: {e}")
+            return [0.0] * 1536
+
     async def get_vector_response_for_hybrid_search(self, query, focus_area, max_results, repo_id):
-        if self.embedding_client:
-            print("************************ Inside vector search for semantic similarity **************************")
-            query_embedding = self.embedding_client.embed_query(query)
-            search_level = self._map_focus_to_search_level(focus_area)
-            print("** Search LEVEL **", search_level)
+        print("************************ Inside vector search for semantic similarity **************************")
+        # query_embedding = self.embedding_client.embed_query(query)
+        query_embedding = await self._create_embedding(query)
+        print("query embedding type", type(query_embedding))
+        search_level = self._map_focus_to_search_level(focus_area)
+        print("** Search LEVEL **", search_level)
 
-            vector_results = await self.simple_database_obj.search_by_vector(
-                query_embedding, repo_id, search_level=search_level, limit=max_results
+        vector_results = await self.simple_database_obj.search_by_vector(
+            query_embedding, repo_id, search_level=search_level, limit=max_results
+        )
+
+        # Convert vector results to SearchResult objects
+        vector_search_results = []
+        for row in vector_results:
+            distance = float(row['distance'])
+            score = 1.0 - distance
+
+            result = SearchResult(
+                file_path=row['file_path'],
+                name=row['name'],
+                type=row['type'],
+                relevance_score=score,
+                enhanced_content=row.get('enhanced_content', ''),
+                parent_class=row.get('parent_class', ''),
+                rich_metadata=row.get('rich_metadata', ''),
+                match_reason = ""
             )
-
-            # Convert vector results to SearchResult objects
-            vector_search_results = []
-            for row in vector_results:
-                distance = float(row['distance'])
-                score = 1.0 - distance
-
-                result = SearchResult(
-                    file_path=row['file_path'],
-                    name=row['name'],
-                    type=row['type'],
-                    relevance_score=score,
-                    enhanced_content=row.get('enhanced_content', ''),
-                    parent_class=row.get('parent_class', ''),
-                    rich_metadata=row.get('rich_metadata', ''),
-                    match_reason = ""
-                )
-                vector_search_results.append(result)
-        else:
-            vector_search_results = []
+            vector_search_results.append(result)
         return vector_search_results
 
     def combine_results_and_remove_duplicates_for_hybrid_search(self, metadata_results, enhanced_results):
@@ -923,7 +924,7 @@ class DocumentGeneratorAgent:
             query = input_data.developer_task_query
             print("The query is ", query)
             self.generator = SimpleDocumentGenerator()
-            self.repo_id = "simple_repo_sample_repo"
+            self.repo_id = "examples"
             tool_decision = await self.generator._analyze_query_for_tool_selection(query)
 
             selected_tool = tool_decision.get("tool_name", "unknown")

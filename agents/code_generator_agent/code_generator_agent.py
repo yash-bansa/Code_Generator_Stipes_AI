@@ -148,9 +148,9 @@ class CodeGeneratorAgent:
         # Extract modifications from DeltaAnalyzer suggestions
         modifications = suggestions.get("modifications", [])
 
-        if not modifications:
-            logger.info(f"[CodeGeneratorAgent] No modifications specified for {file_path}")
-            return None
+        # if not modifications:
+        #     logger.info(f"[CodeGeneratorAgent] No modifications specified for {file_path}")
+        #     return None
 
         # Try different modification approaches
         modified_content = None
@@ -311,7 +311,12 @@ class CodeGeneratorAgent:
             prompt += context_info
 
         try:
-            response = self.invoke_claude_sonnet(prompt)
+            response = await llm_client.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                model="claude-3.7-sonnet"
+            )
+
+            # response = self.invoke_claude_sonnet(prompt)
 
             if response:
                 # Clean the response to extract just the code
@@ -467,8 +472,11 @@ class CodeGeneratorAgent:
         """
 
         # Call the LLM to get the migrated code (e.g., OpenAI, vLLM, local model)
+        response = await llm_client.chat_completion(
+                messages=[{"role": "user", "content": llm_prompt}],
+                model="claude-3.7-sonnet"
+            )
 
-        response = self.invoke_claude_sonnet(llm_prompt)
         if response:
             # Clean the response to extract just the code
             cleaned_code = self._extract_code_from_response(response)

@@ -30,13 +30,13 @@ class MasterPlannerAgent:
     async def identify_target_files(self, input_data: MasterPlannerInput, rag_result: str) -> MasterPlannerOutput:
         """
         Identify target files based solely on RAG agent output with comprehensive validation
-        
+
         Args:
             input_data: MasterPlannerInput (without project_path dependency)
             rag_result: Output from your RAG agent as string
         """
         logger.info("🔍 Starting RAG-only file identification process...")
-        
+
         if not rag_result or not rag_result.strip():
             return MasterPlannerOutput(
                 success=False,
@@ -49,13 +49,13 @@ class MasterPlannerAgent:
             specific_files = self._extract_specific_files(input_data.user_question)
             if specific_files:
                 logger.info(f"📝 Specific files mentioned by user: {specific_files}")
-                
+
                 # Quick check: Are user-specified files even mentioned in RAG?
                 missing_from_rag = []
                 for file_name in specific_files:
                     if file_name.lower() not in rag_result.lower():
                         missing_from_rag.append(file_name)
-                
+
                 if missing_from_rag:
                     return MasterPlannerOutput(
                         success=False,
@@ -75,19 +75,19 @@ class MasterPlannerAgent:
             # Check if analysis failed due to insufficient RAG output
             if not target_files_analysis:
                 failure_reasons = []
-                
+
                 # Determine specific failure reasons
                 if not self._has_file_content_in_rag(rag_result):
                     failure_reasons.append("RAG output lacks specific file names or code content")
-                
+
                 if specific_files:
                     failure_reasons.append(f"User-specified files {specific_files} could not be properly identified")
-                
+
                 if not failure_reasons:
                     failure_reasons.append("RAG analysis output is insufficient for file identification")
-                
+
                 failure_message = "File identification failed: " + "; ".join(failure_reasons) + "."
-                
+
                 return MasterPlannerOutput(
                     success=False,
                     message=failure_message,
@@ -101,7 +101,7 @@ class MasterPlannerAgent:
                     # Create target file output directly from RAG analysis
                     target_file = self._create_target_file_from_rag(file_analysis)
                     target_files.append(target_file)
-                    
+
                     logger.info(f"✅ Created target file: {target_file.file_path}")
                 except Exception as fe:
                     logger.error(f"[FILE ERROR] Failed to create target file from analysis: {fe}")
@@ -123,7 +123,7 @@ class MasterPlannerAgent:
             if specific_files:
                 found_file_names = [Path(tf.file_path).name for tf in target_files]
                 missing_specific_files = [f for f in specific_files if f not in found_file_names]
-                
+
                 if missing_specific_files:
                     logger.error(f"❌ User-specified files not found in final analysis: {missing_specific_files}")
                     return MasterPlannerOutput(
@@ -134,7 +134,7 @@ class MasterPlannerAgent:
                     )
 
             logger.info(f"✅ Successfully created {len(target_files)} target files from RAG analysis")
-            
+
             return MasterPlannerOutput(
                 success=True,
                 message=f"Successfully identified {len(target_files)} files for modification based on RAG analysis.",
@@ -148,10 +148,10 @@ class MasterPlannerAgent:
                 message=f"Error processing RAG analysis: {str(e)}",
                 files_to_modify=[]
             )
-    async def _analyze_with_rag_only(self, user_query: str, rag_output: str, 
+    async def _analyze_with_rag_only(self, user_query: str, rag_output: str,
                                    config: Dict[str, Any], specific_files: List[str] = None) -> List[Dict[str, Any]]:
         """Create file identification plan using only RAG output"""
-        
+
         prompt = f"""
 You are a Code Identifier Agent that creates detailed file modification plans based on RAG (Retrieval-Augmented Generation) analysis output.
 
@@ -234,28 +234,30 @@ RESPONSE FORMAT (JSON only):
 
 ** Important Note**:
 - For user query related to the migration please include all the files mentioned in the list for the modification.
+- make sure that, If the query is based on migration then assign modification_type to migration else assign one of the values mentioned above.
+
 
 Return ONLY the JSON response with no additional text.
 """
         try:
             logger.info("🤖 Processing RAG output for file identification...")
-            
+
             response = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
                 system_prompt=self.system_prompt
             )
             cleaned_response = self._clean_json_response(response)
-            
+
             try:
                 analysis_result = json.loads(cleaned_response)
                 identified_files = analysis_result.get('identified_files', [])
-                
+
                 logger.info(f"✅ Identified {len(identified_files)} files from RAG analysis")
                 logger.info(f"📊 Analysis confidence: {analysis_result.get('confidence_level', 'unknown')}")
                 logger.info(f"📋 Summary: {analysis_result.get('analysis_summary', 'No summary')}")
-                
+
                 return identified_files
-                
+
             except json.JSONDecodeError as je:
                 logger.error(f"Failed to parse file identification response: {je}")
                 logger.debug(f"Raw response: {response[:500]}...")
@@ -266,12 +268,12 @@ Return ONLY the JSON response with no additional text.
             return []
     def _create_target_file_from_rag(self, file_analysis: Dict[str, Any]) -> TargetFileOutput:
         """Create TargetFileOutput directly from RAG analysis without file system access"""
-        
+
         # Extract file information
         file_path = file_analysis.get('file_path', '')
         file_info = file_analysis.get('file_info', {})
         # structure = file_analysis.get('structure', {})
-        
+
         cross_file_deps = file_analysis.get("cross_file_dependencies", {})
         if cross_file_deps is None:
             cross_file_deps = None
@@ -285,7 +287,7 @@ Return ONLY the JSON response with no additional text.
             }
 
             cross_file_deps = safe_cross_file_deps if any(safe_cross_file_deps.values()) else None
-        
+
         # Create FileAnalysisResult without suggested_changes and cross_file_dependencies
         analysis_result = FileAnalysisResult(
             needs_modification=file_analysis.get('needs_modification', True),
@@ -313,7 +315,7 @@ Return ONLY the JSON response with no additional text.
             r'\bcreate\s+(?:the\s+)?["\']?(\w+\.py)["\']?',
             r'\bupdate\s+(?:the\s+)?["\']?(\w+\.py)["\']?',
         ]
-        
+
         specific_files = set()
         for pattern in file_patterns:
             try:
@@ -323,20 +325,20 @@ Return ONLY the JSON response with no additional text.
             except Exception as e:
                 logger.warning(f"Error in pattern matching: {e}")
                 continue
-        
+
         # Filter valid files
         valid_files = []
         for file_name in specific_files:
-            if (file_name.endswith('.py') and len(file_name) > 3 and 
+            if (file_name.endswith('.py') and len(file_name) > 3 and
                 re.match(r'^[\w\-\.]+\.py$', file_name)):
                 valid_files.append(file_name)
-        
+
         logger.info(f"Extracted specific files: {valid_files}")
         return valid_files
-    
+
     def _has_file_content_in_rag(self, rag_result: str) -> bool:
         return bool(rag_result and len(rag_result.strip()) > 50)
-    
+
     def _clean_json_response(self, response: str) -> str:
         """Clean and extract JSON from LLM response."""
         # Remove markdown code blocks
@@ -356,7 +358,7 @@ Return ONLY the JSON response with no additional text.
         response = response.replace("True", "true").replace("False", "false")
         response = re.sub(r",\s*([}\]])", r"\1", response)  # Remove trailing commas
         return response.strip()
-    
+
     async def detect_migration_with_llm(self,user_query: str) -> Dict[str, Any] :
 
         detection_prompt = f"""
@@ -372,14 +374,14 @@ Return ONLY the JSON response with no additional text.
     -Framework changes (Django to Flask , React to Vue, etc.)
     - Version upgrades (Python 2 to 3 , Django 3.2 to 4.2, etc.)
     - Technology conversions (REST to GraphQL, SQL to NoSQL, etc.)
-    - Modernization of entire codebase 
+    - Modernization of entire codebase
 
     Consider these as MODIFICATION:
-    - Adding new features or functions 
-    - Bug fixes and improvements 
-    - Code Optimization 
+    - Adding new features or functions
+    - Bug fixes and improvements
+    - Code Optimization
     - Adding database migration (not code migration)
-    - Configuration changes 
+    - Configuration changes
     - Adding tests or documentation
 
     Return JSON:
@@ -393,7 +395,7 @@ Return ONLY the JSON response with no additional text.
         "type" : "framework_change|version_upgrade|modernization"
     }}
     }}
-""" 
+"""
         try:
             response = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": detection_prompt}],
@@ -413,14 +415,14 @@ Return ONLY the JSON response with no additional text.
                 return detection_result
 
             return {"is_migration" :False , "confidence" : detection_result.get("confidence", 0.0)}
-        
+
         except Exception as e:
             print(f"LLM migration detection failed : {e}")
             return {"is_migration" : False, "confidence" : 0.0}
 
     async def extract_repos_from_query(self,query:str) -> list:
 
-        repo_list = ["repo1","repo2"] 
+        repo_list = ["repo1","repo2"]
 
         DEFAULT_REPO = "repo1"
 
@@ -445,11 +447,11 @@ Return ONLY the JSON response with no additional text.
             ]
 
             return matched_repos if matched_repos else [DEFAULT_REPO]
-        
+
         except Exception as e :
             print(f"LLM Extraction failed: {e}")
             return [DEFAULT_REPO]
-        
+
     async def detect_migration_type_with_llm(self, user_query: str) -> bool:
 
         prompt = f"""
@@ -471,7 +473,7 @@ Return ONLY the JSON response with no additional text.
     2. Can you help migrate file1.py and file2.py? --- "multiple_files_migration"
     3. I want to migrate the entire repo reponame ? --- "repository_migration"
 
-    INSTRUCTIONS:- 
+    INSTRUCTIONS:-
     - So if any specific python file name is mention it was single or multiple file migration.
     - And if no python names are present or repo name is present then it was repository migration.
 
@@ -481,7 +483,7 @@ Return ONLY the JSON response with no additional text.
     Query: "{user_query}"
     ---
     What type of migration does this query refer to? Respond only with the type (no explanations).
-"""    
+"""
         try:
             raw_response = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": prompt}]
@@ -499,13 +501,12 @@ Return ONLY the JSON response with no additional text.
                 return True
             else:
                 return False
-        
+
         except Exception as e:
-            return True   
+            return True
 
-        
-    
 
-        
 
-         
+
+
+
