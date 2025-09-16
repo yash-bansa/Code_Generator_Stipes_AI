@@ -1,14 +1,17 @@
 import csv
 import psycopg2
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 CSV_FILE = "new_pyspark_data_generation.csv"  # Change to your CSV file path
 
 # PostgreSQL connection details — change as needed
-PG_HOST = ""
-PG_PORT = 5432
-PG_DB = ""
-PG_USER = ""
-PG_PASS = ""
+PG_HOST = os.getenv("PG_HOST")
+PG_PORT = os.getenv("PG_PORT")
+PG_DB = os.getenv("PG_DB")
+PG_USER = os.getenv("PG_USER")
+PG_PASS = os.getenv("PG_PASS")
 
 TABLE_CREATION_SQL = """
 CREATE TABLE IF NOT EXISTS pyspark_data_table (
