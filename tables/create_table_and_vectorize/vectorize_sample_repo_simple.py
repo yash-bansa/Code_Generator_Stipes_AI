@@ -16,33 +16,16 @@ import time
 from pathlib import Path
 from typing import Dict, Any
 from dotenv import load_dotenv
-from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from simple_document_generator import SimpleDocumentGenerator
 
 # Load environment variables
 load_dotenv()
 
 # Add the current directory to Python path for imports
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import simplified system
-
-
-
-async def check_openai_api() -> bool:
-    print("Inside check openai key")
-    """Check if OpenAI API key is available."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        print("❌ ERROR: OPENAI_API_KEY environment variable not set!")
-        print("Please set your OpenAI API key:")
-        print("export OPENAI_API_KEY='your-api-key-here'")
-        return False
-
-    print(f"✅ OpenAI API key found (ends with: ...{api_key[-4:]})")
-    return True
 
 
 async def check_repository_exists(repo_path: str) -> bool:
@@ -86,44 +69,12 @@ async def setup_simple_generator() -> SimpleDocumentGenerator:
     database_config = get_database_config()
     print(f"📊 Database: {database_config['user']}@{database_config['host']}:{database_config['port']}/{database_config['database']}")
 
-    embedding_client = None
-    llm_client = None
+    # embedding_client = None
+    # llm_client = None
 
-    try:
-        print("inside embeddings clients try")
-        if os.getenv("AZURE_OPENAI_API_KEY"):
-
-            embedding_client = AzureOpenAIEmbeddings(
-                model=os.getenv("AZURE_OPENAI_EMBEDDING_MODEL"),
-                azure_endpoint=os.getenv("AZURE_ENDPOINT"),
-                api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-                api_version=os.getenv("AZURE_API_VERSION")
-            )
-
-            llm_client = AzureChatOpenAI(
-                deployment_name=os.getenv("AZURE_CHAT_MODEL_DEPLOYMENT_NAME"),
-                model=os.getenv("AZURE_OPENAI_CHAT_MODEL"),
-                azure_endpoint=os.getenv("AZURE_ENDPOINT"),
-                api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-                api_version=os.getenv("AZURE_API_VERSION"),
-                temperature=0.1
-            )
-            print("✅ OpenAI clients initialized")
-
-        else:
-            embedding_client = OpenAIEmbeddings(model="text-embedding-3-small")
-            llm_client = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.1)
-            print("✅ OpenAI clients initialized")
-
-    except ImportError:
-        print("⚠️  OpenAI clients not available - using dummy embeddings")
-        embedding_client = None
-        llm_client = None
-
+    # The embedding_client and llm_client are none here as they are being handled inside the SimpleDocumentGenerator class
     generator = SimpleDocumentGenerator(
-        database_config,
-        embedding_client=embedding_client,
-        llm_client=llm_client
+        database_config
     )
 
     print("✅ Simple document generator initialized!")
@@ -165,11 +116,14 @@ async def vectorize_repository_simple(generator: SimpleDocumentGenerator, repo_p
     start_time = time.time()
 
     # Create a unique repository ID
-    repo_id = f"simple_repo_sample_repo"  # 🆕 Use consistent repo_id instead of timestamp
+    repo_id = f"examples"  # 🆕 Use consistent repo_id instead of timestamp
 
     try:
         # Get list of Python files
         python_files = list(Path(repo_path).rglob("*.py"))
+        for py_file in python_files:
+            print(py_file)
+
         total_files = len(python_files)
         processed_files = 0
 
@@ -238,10 +192,7 @@ async def main():
     # Check prerequisites
     print("\n🔍 Checking prerequisites...")
 
-    if not await check_openai_api():
-        return
-
-    repo_path = "<enter_the_repo_path_here>"
+    repo_path = "D:\Code_Generator_Stipes_AI\examples"
     if not await check_repository_exists(repo_path):
         return
 
@@ -253,7 +204,6 @@ async def main():
         generator = await setup_simple_generator()
 
         # Initialize database schema
-        print("\n🗄️  Initializing database...")
         # initialized = await generator.initialize()
         # if not initialized:
         #     print("❌ Failed to initialize database")

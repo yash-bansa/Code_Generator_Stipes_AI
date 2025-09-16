@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
-SCHEMA_NAME = "agentic_poc"
+SCHEMA_NAME = os.getenv("PG_DB_SCHEMA")
 # Add the current directory to Python path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -25,7 +25,7 @@ async def check_database_connection(config):
             port=os.getenv('PG_DB_PORT'),
             user=os.getenv('PG_DB_USER'),
             password=os.getenv('PG_DB_PASSWORD'),
-            database=os.getenv('PG_DB_NAME')  # Connect to default postgres database first
+            database=os.getenv('PG_DB_NAME')
         )
         await conn.close()
         print("✅ PostgreSQL connection successful")
@@ -105,7 +105,6 @@ async def setup_pgvector_extension(config):
 
 async def create_simple_schema(config):
     """Create the simple 3-table schema for document generation."""
-    SCHEMA_NAME = "agentic_poc"
     try:
         conn = await asyncpg.connect(
             host=os.getenv('PG_DB_HOST'),
@@ -216,14 +215,14 @@ async def create_vector_indexes(config):
         """)
         print("✅ Created file_trail_embeddings vector index")
 
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_class_trail_embeddings_vector
             ON {SCHEMA_NAME}.class_trail_embeddings USING ivfflat (embedding vector_cosine_ops)
             WITH (lists = 100);
         """)
         print("✅ Created class_trail_embeddings vector index")
 
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_function_trail_embeddings_vector
             ON {SCHEMA_NAME}.function_trail_embeddings USING ivfflat (embedding vector_cosine_ops)
             WITH (lists = 100);
@@ -257,51 +256,51 @@ async def create_metadata_indexes(config):
             CREATE INDEX IF NOT EXISTS idx_file_repo_id
             ON {SCHEMA_NAME}.file_trail_embeddings (repo_id);
         """)
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_file_path
             ON {SCHEMA_NAME}.file_trail_embeddings (file_path);
         """)
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_file_rich_metadata
             ON {SCHEMA_NAME}.file_trail_embeddings USING GIN (rich_metadata);
         """)
 
         # Class-level indexes
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_class_repo_id
             ON {SCHEMA_NAME}.class_trail_embeddings (repo_id);
         """)
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_class_name
             ON {SCHEMA_NAME}.class_trail_embeddings (class_name);
         """)
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_class_file_path
             ON {SCHEMA_NAME}.class_trail_embeddings (file_path);
         """)
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_class_rich_metadata
             ON {SCHEMA_NAME}.class_trail_embeddings USING GIN (rich_metadata);
         """)
 
         # Function-level indexes
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_function_repo_id
             ON {SCHEMA_NAME}.function_trail_embeddings (repo_id);
         """)
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_function_name
             ON {SCHEMA_NAME}.function_trail_embeddings (function_name);
         """)
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_function_file_path
             ON {SCHEMA_NAME}.function_trail_embeddings (file_path);
         """)
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_function_parent_class
             ON {SCHEMA_NAME}.function_trail_embeddings (parent_class);
         """)
-        await conn.execute("""
+        await conn.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_function_rich_metadata
             ON {SCHEMA_NAME}.function_trail_embeddings USING GIN (rich_metadata);
         """)
@@ -348,8 +347,8 @@ async def verify_setup(config):
         vector_indexes = await conn.fetch(f"""
             SELECT indexname FROM pg_indexes
             WHERE schemaname = '{SCHEMA_NAME}'
-            WHERE tablename IN ('file_trail_embeddings', 'class_trail_embeddings', 'function_trail_embeddings')
-            AND indexname LIKE '%_vector'
+                AND tablename IN ('file_trail_embeddings', 'class_trail_embeddings', 'function_trail_embeddings')
+                AND indexname LIKE '%_vector'
             ORDER BY indexname;
         """)
         print(f"✅ Vector indexes: {len(vector_indexes)} created")
@@ -358,9 +357,9 @@ async def verify_setup(config):
         metadata_indexes = await conn.fetch(f"""
             SELECT indexname FROM pg_indexes
             WHERE schemaname = '{SCHEMA_NAME}'
-            WHERE tablename IN ('file_trail_embeddings', 'class_trail_embeddings', 'function_trail_embeddings')
-            AND indexname NOT LIKE '%_vector'
-            AND indexname NOT LIKE '%_pkey'
+                AND tablename IN ('file_trail_embeddings', 'class_trail_embeddings', 'function_trail_embeddings')
+                AND indexname NOT LIKE '%_vector'
+                AND indexname NOT LIKE '%_pkey'
             ORDER BY indexname;
         """)
         print(f"✅ Metadata indexes: {len(metadata_indexes)} created")
@@ -410,12 +409,6 @@ async def main():
     print("=" * 50)
     print("Creating clean 3-table schema with LLM-enhanced embeddings")
     print()
-
-    # Check if .env file exists
-    if not Path(".env").exists():
-        print("❌ .env file not found!")
-        print("📝 Please copy env_template.txt to .env and configure it first")
-        return 1
 
     # Load database configuration
     config = load_database_config()

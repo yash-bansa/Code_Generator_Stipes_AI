@@ -1,17 +1,26 @@
 import csv
 import psycopg2
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 CSV_FILE = "new_pyspark_data_generation.csv"  # Change to your CSV file path
 
 # PostgreSQL connection details — change as needed
-PG_HOST = ""
-PG_PORT = 5432
-PG_DB = ""
-PG_USER = ""
-PG_PASS = ""
+PG_HOST = os.getenv("PG_DB_HOST")
+PG_PORT = os.getenv("PG_DB_PORT")
+PG_DB = os.getenv("PG_DB_NAME")
+PG_USER = os.getenv("PG_DB_USER")
+PG_PASS = os.getenv("PG_DB_PASSWORD")
+SCHEMA_NAME = os.getenv("PG_DB_SCHEMA")
 
-TABLE_CREATION_SQL = """
-CREATE TABLE IF NOT EXISTS pyspark_data_table (
+
+SCHEMA_CREATION_SQL = f"""
+CREATE SCHEMA IF NOT EXISTS {SCHEMA_NAME};
+"""
+
+TABLE_CREATION_SQL = f"""
+CREATE TABLE IF NOT EXISTS {SCHEMA_NAME}.pyspark_data_table (
     pyspark_version VARCHAR(10),
     module VARCHAR(255),
     qualname VARCHAR(500) PRIMARY KEY,
@@ -39,6 +48,11 @@ def create_table_and_load_csv():
     )
     cursor = conn.cursor()
 
+    # Create schema if it doesn't exist
+    cursor.execute(SCHEMA_CREATION_SQL)
+    conn.commit()
+    print(f"Schema '{SCHEMA_NAME}' created or already exists.")
+
     # Create table
     cursor.execute(TABLE_CREATION_SQL)
     conn.commit()
@@ -52,8 +66,8 @@ def create_table_and_load_csv():
         for row in reader:
             deprecated_val = row.get('deprecated', '').strip().lower() == 'true'
             try:
-                cursor.execute("""
-                    INSERT INTO pyspark_data_table (
+                cursor.execute(f"""
+                    INSERT INTO {SCHEMA_NAME}.pyspark_data_table (
                         pyspark_version, module, qualname, type, parameters, returns,
                         deprecated, versionadded, versionchanged, versionchanged_note,
                         deprecated_in, deprecated_note, replacement, docstring

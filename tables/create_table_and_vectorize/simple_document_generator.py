@@ -23,8 +23,9 @@ from typing import Dict, List, Optional, Any, Tuple, cast
 from pathlib import Path
 import time
 import json
-
-from .simple_database_schema import SimpleDocumentDatabase, create_simple_database
+import requests
+import openai
+from simple_database_schema import  create_simple_database
 
 
 @dataclass
@@ -74,9 +75,7 @@ class SimpleDocumentGenerator:
     """
 
     def __init__(self,
-                 database_config: Dict[str, Any],
-                 embedding_client=None,
-                 llm_client=None):
+                 database_config: Dict[str, Any]):
         """
         Initialize simple document generator.
 
@@ -86,8 +85,6 @@ class SimpleDocumentGenerator:
             llm_client: LLM client for enhancement
         """
         self.database = create_simple_database(database_config)
-        self.embedding_client = embedding_client
-        self.llm_client = llm_client
         self.logger = logging.getLogger(__name__)
 
         # Simple config
@@ -127,6 +124,7 @@ class SimpleDocumentGenerator:
                 try:
                     print(f"📄 Processing file {i}/{len(files)}: {file_path}")
                     blocks = await self._extract_code_blocks(file_path)
+                    print("index repo",file_path)
                     all_blocks.extend(blocks)
                     files_processed += 1
 
@@ -154,7 +152,7 @@ class SimpleDocumentGenerator:
                 print(f"🔄 Processing batch {i//self.batch_size + 1}/{(len(all_blocks) + self.batch_size - 1)//self.batch_size} ({len(batch)} blocks)")
 
                 try:
-                    await self._process_batch(batch, repo_id)
+                    await self._process_batch(batch, repo_id, repo_path)
                     processed_count += len(batch)
                     batch_time = time.time() - batch_start
                     print(f"✅ Batch completed in {batch_time:.2f}s ({processed_count}/{len(all_blocks)} total)")
@@ -223,6 +221,7 @@ class SimpleDocumentGenerator:
                 if any(filename.endswith(ext) for ext in self.supported_extensions):
                     file_path = os.path.join(root, filename)
                     files.append(file_path)
+                    print(f"file_path: {file_path}")
 
         return files
 
@@ -751,7 +750,7 @@ class SimpleDocumentGenerator:
         }
         return lang_map.get(ext, 'unknown')
 
-    async def _process_batch(self, blocks: List[CodeBlock], repo_id: str):
+    async def _process_batch(self, blocks: List[CodeBlock], repo_id: str, repo_path: str):
         """Process a batch of code blocks."""
         for block in blocks:
             try:
@@ -762,7 +761,7 @@ class SimpleDocumentGenerator:
                 embedding = await self._create_embedding(enhanced_content)
 
                 # Step 3: Store in database
-                await self._store_block(block, repo_id, enhanced_content, embedding)
+                await self._store_block(block, repo_id, enhanced_content, embedding, repo_path)
 
             except Exception as e:
                 self.logger.warning(f"Failed to process block {block.name} in {block.file_path}: {e}")
@@ -772,24 +771,32 @@ class SimpleDocumentGenerator:
 
     async def _enhance_with_llm(self, block: CodeBlock) -> str:
         """Enhance code block with LLM-generated documentation."""
-        if not self.llm_client:
-            return block.content
-
         try:
             prompt = f"""Add helpful docstring/comments to this {block.type}:
 
-{block.content}
+            {block.content}
 
-Add a clear docstring that explains:
-1. What this {block.type} does
-2. Key parameters/attributes (if any)
-3. Return value/purpose (if applicable)
-4. Any important usage notes
+            Add a clear docstring that explains:
+            1. What this {block.type} does
+            2. Key parameters/attributes (if any)
+            3. Return value/purpose (if applicable)
+            4. Any important usage notes
 
-Return the enhanced code with good documentation:"""
+            Return the enhanced code with good documentation:
+            """
 
-            response = await self.llm_client.ainvoke(prompt)
-            enhanced = response.content if hasattr(response, 'content') else str(response)
+            base_url = os.getenv("TIGER_BASE_URL")
+            api_key = os.getenv("TIGER_API_KEY")
+            model = os.getenv("TIGER_MODEL_NAME")
+
+            client = openai.OpenAI(api_key =  api_key,
+                                base_url = base_url)
+            response = client.chat.completions.create(model=model,
+                                                    messages = [{"role": "user",
+                                                                "content": prompt
+                                                                }
+                                                                ])
+            enhanced = response.choices[0].message.content
 
             # Fallback if LLM returns something weird
             if len(enhanced) < len(block.content) * 0.8:
@@ -802,34 +809,49 @@ Return the enhanced code with good documentation:"""
             return block.content
 
     async def _create_embedding(self, content: str) -> List[float]:
-        """Create embedding for enhanced content."""
-        if not self.embedding_client:
-            # Return dummy embedding for testing
-            return [0.0] * 1536
+        url = os.getenv("TIGER_EMBEDDING_BASE_URL")
+        api_key = os.getenv("TIGER_EMBEDDING_API_KEY")
+        model = os.getenv("TIGER_EMBEDDING_MODEL_NAME")
 
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        data = {"model": model, "input": content}
         try:
-            # LangChain embeddings don't need await
-            response = self.embedding_client.embed_query(content)
-            return response
+            response = requests.post(url, json=data, headers=headers, verify=False)
+            return response.json()['data'][0]['embedding']
         except Exception as e:
             self.logger.warning(f"Embedding creation failed: {e}")
             return [0.0] * 1536
 
     def _get_relative_path(self, absolute_path: str, repo_path: str) -> str:
         """Convert absolute path to clean relative path from repo root."""
+        print("I am inside _get_relative_path")
+        print(f"absolute_path is :{absolute_path}")
+        print(f"repo_path is :{repo_path}")
+        print(f"Output : {os.path.relpath(absolute_path, repo_path)}")
+        repo_path = '/'.join(repo_path.split("/")[:-1])
+        print(f"repo_path is :{repo_path}")
         try:
             return os.path.relpath(absolute_path, repo_path)
         except:
+            print("Inside except of _get_relative_path function")
             # Fallback: if can't get relative path, use basename
             return os.path.basename(absolute_path)
 
     async def _store_block(self, block: CodeBlock, repo_id: str,
-                          enhanced_content: str, embedding: List[float]):
+                          enhanced_content: str, embedding: List[float], repo_path):
         """Store code block in appropriate database table."""
         try:
             # Convert absolute path to clean relative path
-            repo_path = getattr(self, '_current_repo_path', os.path.dirname(block.file_path))
+            # repo_path = getattr(self, '_current_repo_path', os.path.dirname(block.file_path))
+            print("Inside _store_block")
+            print(f"repo_path : {repo_path}")
+
             relative_file_path = self._get_relative_path(block.file_path, repo_path)
+            print(f"relative_file_path : {relative_file_path}")
+
 
             if block.type == "file":
                 await self.database.store_file_embedding(
@@ -858,7 +880,7 @@ Return the enhanced code with good documentation:"""
                     **block.metadata  # ✅ Include ALL rich metadata (signatures, intent, quality)
                 }
                 await self.database.store_function_embedding(
-                    repo_id, block.file_path, block.name, embedding,
+                    repo_id, relative_file_path, block.name, embedding,
                     enhanced_content, block.content, function_storage_metadata
                 )
         except Exception as e:

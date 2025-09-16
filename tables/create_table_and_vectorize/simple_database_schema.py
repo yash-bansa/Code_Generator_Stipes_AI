@@ -15,8 +15,11 @@ import json
 import logging
 from typing import Dict, List, Optional, Any
 import asyncpg
+from dotenv import load_dotenv
+import os
 
-SCHEMA_NAME = "agentic_poc"
+load_dotenv()
+SCHEMA_NAME = os.getenv("PG_DB_SCHEMA")
 class SimpleDocumentDatabase:
     """Simple database manager for document embeddings."""
 
@@ -63,8 +66,8 @@ class SimpleDocumentDatabase:
             rich_metadata = {k: v for k, v in metadata.items()
                            if k not in ['file_hash', 'language', 'file_size', 'function_names', 'class_names', 'imports']}
 
-            await conn.execute("""
-                INSERT INTO file_trail_embeddings
+            await conn.execute(f"""
+                INSERT INTO {SCHEMA_NAME}.file_trail_embeddings
                 (repo_id, file_path, file_hash, embedding, enhanced_content,
                  original_content, programming_language, file_size, function_names, class_names, imports, rich_metadata)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -107,8 +110,8 @@ class SimpleDocumentDatabase:
             rich_metadata = {k: v for k, v in metadata.items()
                            if k not in ['base_classes', 'parent_classes', 'methods', 'properties', 'start_line', 'end_line']}
 
-            await conn.execute("""
-                INSERT INTO class_trail_embeddings
+            await conn.execute(f"""
+                INSERT INTO {SCHEMA_NAME}.class_trail_embeddings
                 (repo_id, file_path, class_name, embedding, enhanced_content,
                  original_content, parent_classes, methods, properties, start_line, end_line, rich_metadata)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -153,8 +156,8 @@ class SimpleDocumentDatabase:
             rich_metadata = {k: v for k, v in metadata.items()
                            if k not in ['parent_class', 'parameters', 'return_type', 'start_line', 'end_line']}
 
-            await conn.execute("""
-                INSERT INTO function_trail_embeddings
+            await conn.execute(f"""
+                INSERT INTO {SCHEMA_NAME}.function_trail_embeddings
                 (repo_id, file_path, function_name, embedding, enhanced_content,
                  original_content, parent_class, parameters, return_type, start_line, end_line, rich_metadata)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
