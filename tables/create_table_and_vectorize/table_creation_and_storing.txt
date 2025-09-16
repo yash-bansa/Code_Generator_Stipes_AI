@@ -1,0 +1,11 @@
+postgres_setup_trail -> This file contains the postgres db connection and table and index creation code.
+simple_database_schema -> This file contains the db connection and storing the values and embeddings into table.
+VECTORIZE_SAMPLE_REPO_SIMPLE -> This file contains scanning the repo files and chunk creation.
+view_vector -> This file contains the small script to view the table after load.
+
+(Also, attached the simple_document_generator original file for reference).
+
+########################################################################################
+
+for table creation need to run -> postgres_setup_trail.py
+for creating and pushing vectors -> VECTORIZE_SAMPLE_REPO_SIMPLE

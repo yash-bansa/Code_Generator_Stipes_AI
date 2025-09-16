@@ -4,7 +4,7 @@ requests
 sqlalchemy
 pytest # for testing
 black  # for code formatting
-flake8  # for linting 
+flake8  # for linting
 langgraph
 langchain
 langchain-community
@@ -19,7 +19,7 @@ json5
 autopep8
 black
 streamlit
-groq 
+groq
 aiofiles
 grandalf
 fastapi
@@ -30,3 +30,6 @@ psycopg2
 langfuse
 fastapi
 uvicorn
+asyncpg
+boto3
+langchain_openai
