@@ -27,7 +27,7 @@ redis
 poetry
 pipenv
 psycopg2
-langfuse
+langfuse==2.60.9
 fastapi
 uvicorn
 asyncpg

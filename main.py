@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware 
-import uvicorn 
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 import uuid
@@ -60,7 +60,7 @@ def get_additional_requirements(text):
         if stripped_text.lower().startswith(pattern):
             return stripped_text[len(pattern):].lstrip()
 
-    return ""    
+    return ""
 
 class APIResponse(BaseModel):
     session_id: str
@@ -382,11 +382,11 @@ def get_waiting_for_input_response(waiting_resp_dict, waiting_message, double_li
 def clean_completed_output(code_gen_response_dict, double_line):
     code_gen_response = ""
 
-    if code_gen_response_dict["total_modification"] == 0:
+    if code_gen_response_dict["total_modifications"] == 0:
 
         config_info_dict = ast.literal_eval(code_gen_response_dict["modified_files"][0]["modified_content"])[0]
 
-        code_gen_response += "File name : " + config_info_dict["file_path"] + double_line 
+        code_gen_response += "File name : " + config_info_dict["file_path"] + double_line
         code_gen_response += "File content :" + "\n```json\n"
         updated_config_str = json.dumps({"sequence": config_info_dict['updated_config']},indent=4)
         updated_config_str = updated_config_str.replace("\\n", '\n')
@@ -406,7 +406,7 @@ def get_specific_response_for_display(response):
         if response.status == "waiting_for_input":
             response_str = get_waiting_for_input_response(response.data, response.message, double_line)
         elif response.status == "completed":
-            response_str = clean_completed_output(response_str.results["code_generator"], double_line)
+            response_str = clean_completed_output(response.results["code_generator"], double_line)
         elif response.status == "query_refinement_needed":
             response_str = response.message + double_line
             response_str += ", ".join(response.data["suggestions"]) + double_line
@@ -425,7 +425,7 @@ def convert_datetime_to_str(data: dict) -> dict:
         if isinstance(v, datetime):
             result[k] = v.isoformat()
         else:
-            result[k] = v 
+            result[k] = v
     return result
 
 def get_streaming_display(node_name, node_state):
@@ -433,44 +433,44 @@ def get_streaming_display(node_name, node_state):
     if node_name == "communication_node":
         display_resp = "Communication agent is thinking. \n\n"
         if "core_intent" in node_state:
-                display_resp += f"- Core intent : {node_state["core_intent"]}\n\n"
+            display_resp += f"- Core intent : {node_state['core_intent']}\n\n"
         if "context_notes" in node_state:
-                display_resp += f"- Context notes : {node_state["context_notes"]}\n\n"
+            display_resp += f"- Context notes : {node_state['context_notes']}\n\n"
         if "communication_success" in node_state:
-                display_resp += f"- Communication success : {node_state["communication_success"]}\n\n"
+            display_resp += f"- Communication success : {node_state['communication_success']}\n\n"
         return display_resp
     elif node_name == "query_enhancement_node":
         display_resp  += "Query Enhancement agent is thinking. \n\n"
         if "developer_task" in node_state:
-            display_resp += f"- Developer task : {node_state["developer_task"]}\n\n"
+            display_resp += f"- Developer task : {node_state['developer_task']}\n\n"
         if "enhancement_success" in node_state:
-                display_resp += f"- Enhancement success : {node_state["enhancement_success"]}\n\n"
+            display_resp += f"- Enhancement success : {node_state['enhancement_success']}\n\n"
         return display_resp
     elif node_name == "master_planner_node":
         display_resp  += "Master Planner Agent is thinking. \n\n"
         if "change_type" in node_state:
-            display_resp += f"- Change type : {node_state["change_type"]}\n\n"
+            display_resp += f"- Change type : {node_state['change_type']}\n\n"
         if "master_planner_message" in node_state:
-                display_resp += f"- Master planner message : {node_state["master_planner_message"]}\n\n"
+            display_resp += f"- Master planner message : {node_state['master_planner_message']}\n\n"
         if "master_planner_success" in node_state:
-                display_resp += f"- Master planner success : {node_state["master_planner_success"]}\n\n"        
+            display_resp += f"- Master planner success : {node_state['master_planner_success']}\n\n"
         return display_resp
     elif node_name == "delta_analyzer_node":
         display_resp  += "Delta Analyzer Agent is thinking. \n\n"
         if "delta_analyzer_success" in node_state:
-                display_resp += f"- Delta analyzer success : {node_state["delta_analyzer_success"]}\n\n"  
-        display_resp += "- The graph has procceeded to code generator node for code generation"              
+            display_resp += f"- Delta analyzer success : {node_state['delta_analyzer_success']}\n\n"
+        display_resp += "- The graph has procceeded to code generator node for code generation"
         return display_resp
     elif node_name == "code_generator_node":
         display_resp  += "Code generator agent is thinking. \n\n"
         if "code_generator_success" in node_state:
-                display_resp += f"- Code generator success : {node_state["code_generator_success"]}\n\n"  
-        display_resp += "- The graph has procceeded to code validator node for code validation"              
+            display_resp += f"- Code generator success : {node_state['code_generator_success']}\n\n"
+        display_resp += "- The graph has procceeded to code validator node for code validation"
         return display_resp
     elif node_name == "code_validator_node":
         display_resp  += "Code validator agent is thinking. \n\n"
         if "code_validator_success" in node_state:
-                display_resp += f"- Code validator success : {node_state["code_validator_success"]}\n\n"               
+            display_resp += f"- Code validator success : {node_state['code_validator_success']}\n\n"
         return display_resp
     return node_state
 
@@ -485,7 +485,7 @@ async def liveness():
 @app.get("/readiness")
 async def readiness():
     return {"status" : "ready"}
-            
+
 @app.post("/chat")
 async def chat_endpoint(data: dict):
     try:
@@ -496,8 +496,13 @@ async def chat_endpoint(data: dict):
         user_content_list = [ele for ele in data["messages"]][0::2]
         user_queries = [ele["content"].strip() for ele in user_content_list]
 
-        session = session_manager_redis.get_session(session_id)
+        print("printing user_content_list")
+        print(user_content_list)
 
+        print("user_queries")
+        print(user_queries)
+
+        session = session_manager_redis.get_session(session_id)
         if session is None:
             # Create new session with optional user_id and history loading
             query_type = "initial"
@@ -510,8 +515,8 @@ async def chat_endpoint(data: dict):
         else:
             query_type = "intermediate"
             is_new_session = False
-            
-    
+
+
         current_state = BotStateSchema(**session["state"])
 
         # Handle different query types
@@ -558,7 +563,7 @@ async def chat_endpoint(data: dict):
                                     "user_history": preserved_history,
                                     "current_user": preserved_user
                                 }
-                
+
                 fresh_state = BotStateSchema(**fresh_state_dict)
 
                 session_manager_redis.update_session_state(session_id,fresh_state.dict())
@@ -568,7 +573,7 @@ async def chat_endpoint(data: dict):
                                     "current_stage": "follow_up_query",
                                     "status" : "active"
                                 })
-                
+
                 current_state = fresh_state
             else:
                 if "yes" in message.lower():
@@ -684,7 +689,7 @@ async def chat_endpoint(data: dict):
         session = session_manager_redis.get_session(session_id)
         should_execute_workflow = not session.get("waiting_for_input", False)
 
-    
+
         if should_execute_workflow:
             try:
                 logger.info("Starting/Continuing workflow execution...")
@@ -708,16 +713,16 @@ async def chat_endpoint(data: dict):
                                 value = {'index': 0 ,'finish_reason' : None , 'delta' : {'content': display_resp}, 'usage': None}
                             except:
                                 value = {'index': 0 ,'finish_reason' : None , 'delta' : {'content': json.dumps(display_resp)}, 'usage': None}
-                            
+
                             payload = {'choices' : [value], "usage": value.get("usage")}
                             yield f"data: {json.dumps(payload)}\n\n"
-                        
+
                         final_state = BotStateSchema(**state)
                         # Update session with new state
                         session_manager_redis.update_session_state(session_id, final_state.dict())
                         session = session_manager_redis.get_session(session_id)
                         print(session)
-                        
+
                         # Generate response based on final state
                         response = await _generate_response(session_id, final_state, session)
                         response_str = get_specific_response_for_display(response)
@@ -729,7 +734,7 @@ async def chat_endpoint(data: dict):
                             payload = {'choices' : [value], "usage": value.get("usage")}
                             yield f"data : {json.dumps(payload)}\n\n"
                             await asyncio.sleep(0.1)
-                        
+
                         value = {'index': 0 ,'finish_reason' : 'stop' , 'delta' : {}, 'usage': None}
                         payload = {'choices' : [value], "usage": value.get("usage")}
                         yield f"data : {json.dumps(payload)}\n\n"
@@ -757,7 +762,7 @@ async def chat_endpoint(data: dict):
                     value = {'index': 0 ,'finish_reason' : f"\n\nError : {response_str}!" , 'delta' : {}, 'usage' : None}
                     payload = {'choices' : [value], "usage": value.get("usage")}
                     yield f"data : {json.dumps(payload)}\n\n"
-                return StreamingResponse(error_stream(), media_type="text/event-stream")    
+                return StreamingResponse(error_stream(), media_type="text/event-stream")
         else:
             # We're waiting for input, return current state
             async def processing_stream():
@@ -769,7 +774,7 @@ async def chat_endpoint(data: dict):
                 value = {'index': 0 ,'finish_reason' : f"\n\nError : {response_str}!" , 'delta' : {}, 'usage' : None}
                 payload = {'choices' : [value], "usage": value.get("usage")}
                 yield f"data : {json.dumps(payload)}\n\n"
-            return StreamingResponse(processing_stream(), media_type="text/event-stream")      
+            return StreamingResponse(processing_stream(), media_type="text/event-stream")
 
     except Exception as e:
         logger.error(f"Chat endpoint error: {e}", exc_info=True)
@@ -789,8 +794,8 @@ async def chat_endpoint(data: dict):
             value = {'index': 0 ,'finish_reason' : f"\n\nError : {response_str}!" , 'delta' : {}, 'usage' : None}
             payload = {'choices' : [value], "usage": value.get("usage")}
             yield f"data : {json.dumps(payload)}\n\n"
-        return StreamingResponse(error_stream(), media_type="text/event-stream")    
-    
+        return StreamingResponse(error_stream(), media_type="text/event-stream")
+
 
 # Additional endpoints for session management
 @app.get("/session/{session_id}/status", response_model=SessionInfo)
@@ -849,5 +854,4 @@ async def shutdown_event():
     logger.info("Shutting down LangGraph Interactive Code Assistant API")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)  
- 
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
