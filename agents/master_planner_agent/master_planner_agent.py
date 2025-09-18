@@ -186,6 +186,9 @@ INSTRUCTIONS:
    - Test/documentation files = LOW priority
 
    ** IMPORTANT Note**:
+   - Migration refers to the conversion of code from old pyspark version to a newer version.
+   - So if the query contains info related to pyspark update it is a migration query.
+   - If it just asks to modify the logic without asking us to migrate from one pyspark version to another then it is not migration.
    - if Their is any change related to migration or upgrate the pyspark version use that as a migration as modification type.
    - U must follow the format of the file_path mentioned below in the response format. Don't use backslash, make sure to use forward slash.
    - Always provide the complete file_path, do not deviate from it.
@@ -235,7 +238,10 @@ RESPONSE FORMAT (JSON only):
 ** Important Note**:
 - For user query related to the migration please include all the files mentioned in the list for the modification.
 - make sure that, If the query is based on migration then assign modification_type to migration else assign one of the values mentioned above.
-
+- Examples:
+    1. modification_type = migration.
+       query -> I need to migrate the file app.py to pyspark version 3.5.
+       query -> I want to conver the whole repository to pyspark version 3.5
 
 Return ONLY the JSON response with no additional text.
 """
@@ -402,10 +408,8 @@ Return ONLY the JSON response with no additional text.
                 system_prompt="you are an expert at analyzing code modification requests. Be precise in distinguishing migration vs modification requests",
                 temperature=0.1
             )
-
-            raw_content = response.strip()
-
-            if raw_content.startswith("'''","```"):
+            raw_content =  response.strip()
+            if raw_content.startswith(("'''","```")):
                 lines = raw_content.splitlines()
                 raw_content = "\n".join(lines[1:-1]).strip()
 
@@ -422,9 +426,9 @@ Return ONLY the JSON response with no additional text.
 
     async def extract_repos_from_query(self,query:str) -> list:
 
-        repo_list = ["repo1","repo2"]
+        repo_list = ["examples"]
 
-        DEFAULT_REPO = "repo1"
+        DEFAULT_REPO = "examples"
 
         system_prompt = (
             "Extract all repository names from the following user query."
@@ -495,7 +499,8 @@ Return ONLY the JSON response with no additional text.
             ]
 
             migration_type = raw_response.strip().lower()
-            print(migration_type)
+            if migration_type[0] == '"' and migration_type[-1] == '"':
+                migration_type = migration_type[1:-1]
 
             if migration_type == "repository_migration":
                 return True

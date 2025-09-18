@@ -493,14 +493,8 @@ async def chat_endpoint(data: dict):
         message = data["messages"][-1]["content"]
         session_id = data["config"]["chat_Id"]
 
-        user_content_list = [ele for ele in data["messages"]][0::2]
+        user_content_list = [ele for ele in data["messages"]]
         user_queries = [ele["content"].strip() for ele in user_content_list]
-
-        print("printing user_content_list")
-        print(user_content_list)
-
-        print("user_queries")
-        print(user_queries)
 
         session = session_manager_redis.get_session(session_id)
         if session is None:

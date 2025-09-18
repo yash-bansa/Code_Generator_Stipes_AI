@@ -438,10 +438,11 @@ class CodeGeneratorAgent:
         }
         context = self.analyze_pyspark_code(original_code, connection_params, table_name = "pyspark_data_table")
         context = str(context)
-        # context = self.analyze_pyspark_code(original_code)
-        # print("printing the context of analyze pyspark")
-        print(context)
         print("#"*100)
+        print(context)
+        # if context['needs_modification'] == False:
+        #     print("Skipping the file as it doesn't require any modification.")
+        #     return original_code
 
         combined_context = context
 

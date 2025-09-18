@@ -546,7 +546,6 @@ async def master_planner_node(state: dict) -> dict:
                     for repo in repos:
                         files.extend(await FileHandler._scan_repository(repo))
                     files_dict = [{"file_path" : ele} for ele in files]
-                    print(len(files_dict))
                     req_rag_output = str(files_dict) + "\n here you have the list of all files which are present in the code repo i want you to consider each file for thr code migration purpose or other type of full repo update and based on the user query set the expectation for each file clearly and based on the user query set the expectations for each files clearly and include all the files."
                 else:
                     input_data = DocumentGeneratorInput(

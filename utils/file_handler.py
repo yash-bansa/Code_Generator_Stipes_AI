@@ -14,13 +14,13 @@ class FileHandler:
             if file_path.stat().st_size > settings.MAX_FILE_SIZE:
                 print(f"File {file_path} is too large (>{settings.MAX_FILE_SIZE} bytes)")
                 return None
-            
+
             with open(file_path, 'r', encoding='utf-8') as f:
                 return f.read()
         except Exception as e:
             print(f"Error reading file {file_path}: {e}")
             return None
-    
+
     @staticmethod
     def write_file(file_path: Path, content: str) -> bool:
         """Write content to file safely"""
@@ -32,7 +32,7 @@ class FileHandler:
         except Exception as e:
             print(f"Error writing file {file_path}: {e}")
             return False
-    
+
     @staticmethod
     def load_json(file_path: Path) -> Optional[Dict]:
         """Load JSON file"""
@@ -42,7 +42,7 @@ class FileHandler:
         except Exception as e:
             print(f"Error loading JSON from {file_path}: {e}")
             return None
-    
+
     @staticmethod
     def save_json(file_path: Path, data: Dict) -> bool:
         """Save data to JSON file"""
@@ -54,13 +54,13 @@ class FileHandler:
         except Exception as e:
             print(f"Error saving JSON to {file_path}: {e}")
             return False
-    
+
     @staticmethod
     def find_files(directory: Path, extensions: List[str] = None) -> List[Path]:
         """Find files with specific extensions in directory"""
         if extensions is None:
             extensions = settings.SUPPORTED_EXTENSIONS
-        
+
         files = []
         try:
             for file_path in directory.rglob('*'):
@@ -68,16 +68,16 @@ class FileHandler:
                     files.append(file_path)
         except Exception as e:
             print(f"Error scanning directory {directory}: {e}")
-        
+
         return files
-    
+
     @staticmethod
     def parse_python_file(file_path: Path) -> Optional[Dict]:
         """Parse Python file and extract structure"""
         content = FileHandler.read_file(file_path)
         if not content:
             return None
-        
+
         try:
             tree = ast.parse(content)
             structure = {
@@ -86,7 +86,7 @@ class FileHandler:
                 'imports': [],
                 'variables': []
             }
-            
+
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef):
                     structure['functions'].append({
@@ -111,12 +111,12 @@ class FileHandler:
                     for target in node.targets:
                         if isinstance(target, ast.Name):
                             structure['variables'].append(target.id)
-            
+
             return structure
         except Exception as e:
             print(f"Error parsing Python file {file_path}: {e}")
             return None
-    
+
     @staticmethod
     def backup_file(file_path: Path) -> bool:
         """Create backup of file"""
@@ -127,7 +127,7 @@ class FileHandler:
         except Exception as e:
             print(f"Error creating backup for {file_path}: {e}")
             return False
-    
+
     @staticmethod
     def validate_python_syntax(code: str) -> Tuple[bool, Optional[str]]:
         """Validate Python code syntax"""
@@ -136,7 +136,7 @@ class FileHandler:
             return True, None
         except SyntaxError as e:
             return False, str(e)
-    
+
     @staticmethod
     def get_file_info(file_path: Path) -> Dict:
         """Get comprehensive file information"""
@@ -153,7 +153,7 @@ class FileHandler:
         except Exception as e:
             print(f"Error getting file info for {file_path}: {e}")
             return {}
-    
+
     @staticmethod
     async def _scan_repository(repo_path: str) -> List[str]:
         files = []
@@ -163,15 +163,15 @@ class FileHandler:
             for root, dirs, filenames in os.walk(repo_path):
 
                 dirs[:] = [d for d in dirs if not d.startswith(',') and d not in {'node_modules', '__pycache','venv'}]
-                
+
                 for filename in filenames:
                     if any(filename.endswith(ext) for ext in supported_extentions):
                         file_path = os.path.join(root, filename)
                         files.append(file_path)
 
-                    return files
+            return files
         except Exception as e:
             print(f"Error getting file info for {file_path} : {e}")
-            return files     
-    
+            return files
+
 
