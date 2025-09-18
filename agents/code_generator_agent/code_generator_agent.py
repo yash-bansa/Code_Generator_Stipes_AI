@@ -437,13 +437,13 @@ class CodeGeneratorAgent:
             "password" : os.getenv("PG_DB_PASSWORD")
         }
         context = self.analyze_pyspark_code(original_code, connection_params, table_name = "pyspark_data_table")
-        context = str(context)
         print("#"*100)
         print(context)
-        # if context['needs_modification'] == False:
-        #     print("Skipping the file as it doesn't require any modification.")
-        #     return original_code
+        if context['needs_modification'] == False:
+            print("Skipping the file as it doesn't require any modification.")
+            return original_code
 
+        context = str(context)
         combined_context = context
 
         # Pyspark 3.5 specific migration prompt
@@ -483,6 +483,7 @@ class CodeGeneratorAgent:
             cleaned_code = self._extract_code_from_response(response)
 
         migrated_code = cleaned_code
+        print("The migration code is generated.")
         return migrated_code
 
     def extract_code_like_content_line_by_line(self, response):
