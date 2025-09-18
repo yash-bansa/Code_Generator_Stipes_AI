@@ -4,7 +4,7 @@ from typing import Dict, Any, List
 from pydantic import BaseModel, ValidationError
 from dotenv import load_dotenv
 from pathlib import Path
-from config.agents_io import DependencyAnalyzerInput, DependencyAnalyzerOutput 
+from config.agents_io import DependencyAnalyzerInput, DependencyAnalyzerOutput
 from utils.llm_client import llm_client
 
 load_dotenv()
@@ -24,7 +24,7 @@ class DependencyExtractorAgent:
                 "project_type" : "python",
                 "framework" : "general",
                 "main_files" : ["main.py"],
-                "config_files" : ["config.py"] 
+                "config_files" : ["config.py"]
             }
             with open(config_path, "w") as f:
                 json.dump(default_config,f,indent=2)
@@ -33,7 +33,7 @@ class DependencyExtractorAgent:
         with open(config_path, "r") as f:
             parsed_config = json.load(f)
         return parsed_config
-    
+
     async def analyze_dependencies(self, input_data: DependencyAnalyzerInput) -> DependencyAnalyzerOutput:
 
         logger.info("Strating the config generator agent")
@@ -75,16 +75,16 @@ Extract **only** the relevant information necessary to fulfill the user's query 
 
 
  output will be have two components :
- 1. Generated and output JSON with the schema 
- 2. The summary of the config change 
+ 1. Generated and output JSON with the schema
+ 2. The summary of the config change
 
  output :- {{{{ "<key>" : "<value>", ....}}}} | summary
- 
+
  - the output must be simple json based on Configuration Chunk only take information the feedback.
  - dont add keys in output as edits1 or edit2 just simple json.
 
  --- Generated only the JSON output below ----
-     
+
 """
             logger.debug(f"Generated prompt for LLM (chunk {chunk_idx +1}): {prompt}")
 
@@ -122,17 +122,17 @@ Extract **only** the relevant information necessary to fulfill the user's query 
     async def extract_table_names_from_query(self, user_query: str) -> List[str]:
         """
         Extract table names from a user query using an LLM call.
-        
+
         Args:
             user_query (str): The user's query describing the task or SQL-like operation.
-            
+
         Returns:
             List[str]: A list of table names extracted from the query.
         """
         try:
             # Define the prompt to instruct the LLM effectively
             prompt = f"""
-            You are a database expert. 
+            You are a database expert.
             - Please analyze the following user query and extract all table names mentioned in the query.
             - Make sure that you return all the table names in the query separated by ",".
             - Only use the table names which are used in the query, do not make something up.
@@ -140,35 +140,36 @@ Extract **only** the relevant information necessary to fulfill the user's query 
             - if there are multiple tables return only the tables where modification has to be made.
             - Do not include the source/reference tables.
             - Do not include any extra information in the output.
-            
+
             Query: "{user_query}"
             """
-            
+
             # Make the API call to the LLM
             response = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
             )
-                        
+
             # Post-process the output to ensure it contains a list of table names
             table_names = [table.strip() for table in response.split(",") if table.strip()]
-            
+
             return table_names
 
         except Exception as e:
             # Handle errors (API failure, LLM issues, etc.)
             print(f"Error extracting table names: {e}")
             return []
-        
+
     async def filter_and_format_table_paths(self, input_tables: List[str]) -> List[str]:
 
-        predefined_tables = ["example"]
+        predefined_tables = ["sample_config"]
 
         filtered_tables = [table for table in input_tables if table in predefined_tables]
+        print("filtered_tables",filtered_tables)
 
         formatted_paths = [f"./examples/{table}.json" for table in filtered_tables]
 
         return formatted_paths
-    
+
     def _extract_json(self, response: str) -> str:
         if "```json" in response:
             start = response.find("```json") + 7
@@ -180,7 +181,7 @@ Extract **only** the relevant information necessary to fulfill the user's query 
             return response[start:end].strip()
         return response.strip()
 
-                
 
 
-               
+
+

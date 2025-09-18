@@ -1,4 +1,4 @@
-{
+{"sequence":[{
 "data_sources":
 [{"name":"mock_student_scores",
   "type":"file",
@@ -20,4 +20,4 @@
 "version":"1.0",
 "created_by":"data.engineer@company.com",
 "last_modified":"2025-06-10"},
-"validation":{"is_valid":true,"errors":[],"warnings":[],"suggestions":[]}}
+"validation":{"is_valid":true,"errors":[],"warnings":[],"suggestions":[]}}]}

@@ -14,8 +14,8 @@ from config.agents_io import *
 from utils.file_handler import FileHandler
 from config.settings import settings
 from dotenv import load_dotenv
-from langfuse import Langfuse 
-import os 
+from langfuse import Langfuse
+import os
 
 load_dotenv()
 
@@ -54,15 +54,15 @@ def save_bot_state_to_ledger(state: BotStateSchema, user_id: str):
         # Create ledger directory if it doesn't exist
         ledger_dir = Path("ledger")
         ledger_dir.mkdir(exist_ok=True)
-        
+
         # Generate filename with user ID and timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{user_id}_{timestamp}.json"
         file_path = ledger_dir / filename
-        
+
         # Convert state to dictionary and handle datetime serialization
         state_dict = state.dict()
-        
+
         # Convert datetime objects to ISO format strings for JSON serialization
         def convert_datetime_to_str(obj):
             if isinstance(obj, datetime):
@@ -73,9 +73,9 @@ def save_bot_state_to_ledger(state: BotStateSchema, user_id: str):
                 return [convert_datetime_to_str(item) for item in obj]
             else:
                 return obj
-        
+
         state_dict = convert_datetime_to_str(state_dict)
-        
+
         # Add metadata
         ledger_entry = {
             "user_id": user_id,
@@ -84,16 +84,16 @@ def save_bot_state_to_ledger(state: BotStateSchema, user_id: str):
             "validation_status": "PASSED",
             "bot_state": state_dict
         }
-        
+
         # Save to JSON file
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(ledger_entry, f, indent=2, ensure_ascii=False)
-        
+
         logger.info(f"Bot state saved to ledger: {file_path}")
         print(f"📁 Bot state saved to ledger: {file_path}")
-        
+
         return str(file_path)
-        
+
     except Exception as e:
         logger.error(f"Error saving bot state to ledger: {e}")
         print(f"❌ Error saving bot state to ledger: {e}")
@@ -256,7 +256,7 @@ def print_delta_analyzer_results(delta_output: DeltaAnalyzerOutput):
 
 def print_code_generator_results(code_output: CodeGeneratorOutput):
     print(code_output)
-   
+
 # NEW: Code Validator results printing function
 def print_code_validator_results(validator_output: CodeValidatorOutput):
     print(validator_output)
@@ -277,7 +277,7 @@ def show_help():
 
 def get_user_confirmation_for_master_planner() -> bool:
     pass
-   
+
 # NEW: Function to get user feedback for validation failures
 def get_user_feedback_for_validation_failure(validator_output: CodeValidatorOutput) -> str:
     """Get user feedback when code validation fails"""
@@ -286,7 +286,7 @@ def get_user_feedback_for_validation_failure(validator_output: CodeValidatorOutp
     print("="*60)
     print("The generated code has validation issues that need to be addressed.")
     print("\nMain Issues Found:")
-    
+
     # Show top 5 errors
     if validator_output.errors_found:
         print("\n🚨 Critical Errors:")
@@ -294,7 +294,7 @@ def get_user_feedback_for_validation_failure(validator_output: CodeValidatorOutp
             print(f"   {i}. {error}")
         if len(validator_output.errors_found) > 5:
             print(f"   ... and {len(validator_output.errors_found) - 5} more errors")
-    
+
     # Show top 3 warnings if no errors
     if not validator_output.errors_found and validator_output.warnings:
         print("\n⚠️  Warnings:")
@@ -302,34 +302,34 @@ def get_user_feedback_for_validation_failure(validator_output: CodeValidatorOutp
             print(f"   {i}. {warning}")
         if len(validator_output.warnings) > 3:
             print(f"   ... and {len(validator_output.warnings) - 3} more warnings")
-    
+
     print("\n" + "="*60)
     print("Please provide updated requirements to fix these issues:")
     print("• Be specific about how you want the issues resolved")
     print("• You can reference the errors shown above")
     print("• Type 'skip' if you want to proceed anyway")
     print("="*60)
-    
+
     user_feedback = input("Your updated requirements: ").strip()
     return user_feedback
 
 def convert_delta_to_generator_format(delta_result: DeltaAnalyzerOutput, master_planner_result: List) -> dict:
     """Convert Delta Analyzer output to Code Generator input format"""
     files_to_modify = []
-    
+
     # Group modifications by file path (we need to extract this from modifications)
     file_modifications = {}
-    
+
     for mod in delta_result.modifications:
         # We need to determine which file this modification belongs to
         # This should ideally come from the modification itself
         file_path = getattr(mod, 'file_path', None)
-        
+
         # If no file_path in modification, try to match with master planner results
         if not file_path and master_planner_result:
             # For now, assign to first file - this should be improved based on your schema
             file_path = master_planner_result[0].file_path if master_planner_result else "unknown.py"
-        
+
         if file_path not in file_modifications:
             file_modifications[file_path] = {
                 "file_path": file_path,
@@ -343,7 +343,7 @@ def convert_delta_to_generator_format(delta_result: DeltaAnalyzerOutput, master_
                     "implementation_notes": []
                 }
             }
-        
+
         # Add modification to the file
         file_modifications[file_path]["suggestions"]["modifications"].append({
             "action": mod.action,
@@ -355,7 +355,7 @@ def convert_delta_to_generator_format(delta_result: DeltaAnalyzerOutput, master_
             "explanation": mod.explanation,
             "affects_dependencies": mod.affects_dependencies
         })
-    
+
     # Add global suggestions to all files
     for file_path in file_modifications:
         file_modifications[file_path]["suggestions"]["new_dependencies"] = delta_result.new_dependencies
@@ -363,7 +363,7 @@ def convert_delta_to_generator_format(delta_result: DeltaAnalyzerOutput, master_
         file_modifications[file_path]["suggestions"]["potential_issues"] = delta_result.potential_issues
         file_modifications[file_path]["suggestions"]["cross_file_impacts"] = delta_result.cross_file_impacts
         file_modifications[file_path]["suggestions"]["implementation_notes"] = delta_result.implementation_notes
-    
+
     return {
         "files_to_modify": list(file_modifications.values())
     }
@@ -372,7 +372,7 @@ def convert_delta_to_generator_format(delta_result: DeltaAnalyzerOutput, master_
 def convert_generator_to_validator_format(generator_output: CodeGeneratorOutput) -> CodeValidatorInput:
     """Convert Code Generator output to Code Validator input format"""
     files_to_validate = []
-    
+
     for modified_file in generator_output.modified_files:
         file_to_validate = FileToValidate(
             file_path=modified_file.file_path,
@@ -382,7 +382,7 @@ def convert_generator_to_validator_format(generator_output: CodeGeneratorOutput)
             backup_path=modified_file.backup_path
         )
         files_to_validate.append(file_to_validate)
-    
+
     return CodeValidatorInput(
         modified_files=files_to_validate,
         strict_mode=True,  # Use strict mode for thorough validation
@@ -419,14 +419,14 @@ async def communication_node(state: dict) -> dict:
         name = "communication_agent_step"
     )
 
-    
+
     comm_input = CommunicationInput(
         user_query=state_obj.latest_query,
         conversation_history=state_obj.user_history[:-1] if len(state_obj.user_history) > 1 else []
     )
-    
+
     result: CommunicationOutput = await communication_agent.extract_intent(comm_input)
-    
+
     span.update(
         input = comm_input.model_dump(),
         output = result.model_dump()
@@ -436,10 +436,10 @@ async def communication_node(state: dict) -> dict:
     state_obj.core_intent = result.core_intent
     state_obj.context_notes = result.context_notes
     state_obj.communication_success = result.success
-    
+
     logger.info(f"Core Intent: {result.core_intent}")
     logger.info(f"Context Notes: {result.context_notes}")
-    
+
     return state_obj.dict()
 
 async def query_enhancement_node(state: dict) -> dict:
@@ -454,12 +454,12 @@ async def query_enhancement_node(state: dict) -> dict:
     span = trace.span(
         name = "query_rephrase_agent_step"
     )
-    
+
     enhancer_input = QueryEnhancerInput(
         core_intent=state_obj.core_intent,
         context_notes=state_obj.context_notes
     )
-    
+
     result: QueryEnhancerOutput = await query_rephraser_agent.enhance_query(enhancer_input)
 
     span.update(
@@ -467,13 +467,13 @@ async def query_enhancement_node(state: dict) -> dict:
         output = result.model_dump()
     )
     span.end()
-    
+
     state_obj.developer_task = result.developer_task
     state_obj.is_satisfied = result.is_satisfied
     state_obj.suggestions = result.suggestions
     state_obj.enhancement_success = result.success
     state_obj.change_type = result.change_type
-    
+
     print("I an Inside the query enhancement node")
     logger.info(f"Change Type: {result.change_type}")
     logger.info(f"Developer Task: {result.developer_task}")
@@ -482,7 +482,7 @@ async def query_enhancement_node(state: dict) -> dict:
         logger.info("Suggestions:")
         for s in result.suggestions:
             logger.info(f"- {s}")
-    
+
     return state_obj.dict()
 
 async def master_planner_node(state: dict) -> dict:
@@ -517,7 +517,7 @@ async def master_planner_node(state: dict) -> dict:
 
                     span.update(
                     input = dependency_input.model_dump(),
-                    output = result.model_dump()
+                    output = result
                     )
                     span.end()
 
@@ -530,7 +530,7 @@ async def master_planner_node(state: dict) -> dict:
                 state_obj.updated_config = str(updated_result)
                 req_rag_output = str(updated_result)
             else:
-                req_rag_output = state_obj.updated_config 
+                req_rag_output = state_obj.updated_config
         else:
             print("I am inside master planner code generator node")
             result = await master_planner_agent.detect_migration_with_llm(state_obj.developer_task)
@@ -569,7 +569,7 @@ async def master_planner_node(state: dict) -> dict:
                 input_data = DocumentGeneratorInput(
                         developer_task_query=state_obj.developer_task
                     )
-                
+
                 Document = DocumentGeneratorAgent()
                 rag_output = await Document.generate_document(input_data)
                 req_rag_output = rag_output.generated_doc
@@ -599,12 +599,12 @@ async def master_planner_node(state: dict) -> dict:
             with open(config_path, 'w') as f:
                 json.dump(default_config, f, indent=2)
             logger.info(f"Created default config at: {config_path}")
-        
+
         with open(config_path, 'r') as f:
             parsed_config = json.load(f)
-        
+
         state_obj.parsed_config = parsed_config
-        
+
         span = trace.span(
                     name = "master_planner_agent_step"
                 )
@@ -612,10 +612,10 @@ async def master_planner_node(state: dict) -> dict:
             parsed_config=parsed_config,
             user_question=state_obj.developer_task
         )
-        
+
 
         result: MasterPlannerOutput = await master_planner_agent.identify_target_files(planner_input, rag_result=req_rag_output)
-        
+
         span.update(
                 input = planner_input.model_dump(),
                 output = result.model_dump()
@@ -625,17 +625,17 @@ async def master_planner_node(state: dict) -> dict:
         state_obj.master_planner_result = result.files_to_modify
         state_obj.master_planner_success = result.success
         state_obj.master_planner_message = result.message
-        
+
         logger.info(f"Master Planner Success: {result.success}")
         logger.info(f"Master Planner Message: {result.message}")
         logger.info(f"Files to Modify: {len(result.files_to_modify)}")
-        
+
     except Exception as e:
         logger.error(f"Error in Master Planner Node: {e}")
         state_obj.master_planner_success = False
         state_obj.master_planner_message = f"Error: {str(e)}"
         state_obj.master_planner_result = []
-    
+
     return state_obj.dict()
 
 async def delta_analyzer_node(state: dict) -> dict:
@@ -646,7 +646,7 @@ async def delta_analyzer_node(state: dict) -> dict:
     )
     state_obj = ensure_state_schema(state)
     logger.info("Delta Analyzer Node: Creating modification plan...")
-    
+
     try:
         if state_obj.change_type == "code_change":
 
@@ -659,14 +659,14 @@ async def delta_analyzer_node(state: dict) -> dict:
                 "parsed_config": parsed_config,
                 "user_query" : user_query
             }
-            
+
             if not target_files:
                 logger.warning("No target files available from Master Planner")
                 state_obj.delta_analyzer_success = False
                 state_obj.delta_analyzer_message = "No target files available from Master Planner"
                 state_obj.delta_analyzer_result = None
                 return state_obj.dict()
-            
+
             result_delta = await delta_analyzer_agent.create_modification_plan(target_files,parsed_config,user_query)
 
             span.update(
@@ -682,19 +682,19 @@ async def delta_analyzer_node(state: dict) -> dict:
                 output = result_delta
             )
             span.end()
-        
+
         state_obj.delta_analyzer_result = result_delta
         state_obj.delta_analyzer_success = True
         state_obj.delta_analyzer_message = "Delta Analyzer completed successfully"
-        
+
         logger.info(f"Delta Analyzer Success: True")
-        
+
     except Exception as e:
         logger.error(f"Error in Delta Analyzer Node: {e}")
         state_obj.delta_analyzer_success = False
         state_obj.delta_analyzer_message = f"Delta Analyzer Error: {str(e)}"
         state_obj.delta_analyzer_result = None
-    
+
     return state_obj.dict()
 
 async def code_generator_node(state: dict) -> dict:
@@ -706,7 +706,7 @@ async def code_generator_node(state: dict) -> dict:
 
     state_obj = ensure_state_schema(state)
     logger.info("Code Generator Node: Generating code modifications...")
-    
+
     try:
         if state_obj.change_type == "code_change":
             if not state_obj.delta_analyzer_result or not state_obj.master_planner_result:
@@ -715,14 +715,14 @@ async def code_generator_node(state: dict) -> dict:
                 state_obj.code_generator_message = "No Delta Analyzer or Master Planner results available"
                 state_obj.code_generator_result = None
                 return state_obj.dict()
-        
+
             # Convert Delta Analyzer output to Code Generator input format
             modification_plan = state_obj.delta_analyzer_result
             generator_input = CodeGeneratorInput(
                 modification_plan=modification_plan,
                 user_query=state_obj.developer_task
             )
-        
+
         # Generate code modifications
             result: CodeGeneratorOutput = await code_generator_agent.generate_code_modifications(generator_input)
             span.update(
@@ -755,21 +755,21 @@ async def code_generator_node(state: dict) -> dict:
             )
             span.end()
 
-        
+
         state_obj.code_generator_result = result
         state_obj.code_generator_success = True
         state_obj.code_generator_message = "Code Generator completed successfully" if result.success else "Code Generator failed"
-        
+
         logger.info(f"Code Generator Success: {result.success}")
         logger.info(f"Modified Files: {len(result.modified_files)}")
         logger.info(f"Failed Files: {len(result.failed_files)}")
-        
+
     except Exception as e:
         logger.error(f"Error in Code Generator Node: {e}")
         state_obj.code_generator_success = False
         state_obj.code_generator_message = f"Code Generator Error: {str(e)}"
         state_obj.code_generator_result = None
-    
+
     return state_obj.dict()
 
 # NEW: Code Validator Node
@@ -782,7 +782,7 @@ async def code_validator_node(state: dict) -> dict:
 
     state_obj = ensure_state_schema(state)
     logger.info("Code Validator Node: Validating generated code...")
-    
+
     try:
         if state_obj.change_type == "code_change":
             if not state_obj.code_generator_result or not state_obj.code_generator_success:
@@ -791,10 +791,10 @@ async def code_validator_node(state: dict) -> dict:
                 state_obj.code_validator_message = "No Code Generator results available for validation"
                 state_obj.code_validator_result = None
                 return state_obj.dict()
-        
+
             # Convert Code Generator output to Code Validator input format
             validator_input = convert_generator_to_validator_format(state_obj.code_generator_result)
-        
+
             # Validate the generated code
             result: CodeValidatorOutput = await code_validator_agent.validate_code_changes(validator_input)
             span.update(
@@ -820,26 +820,26 @@ async def code_validator_node(state: dict) -> dict:
                                          warnings=[],
                                          suggestions=[],
                                          execution_time= 0.00,
-                                         timestamp= datetime.now().isoformat())    
+                                         timestamp= datetime.now().isoformat())
             span.update(
                 input = updated_config,
                 output = result.model_dump()
             )
             span.end()
-        
+
         state_obj.code_validator_result = result
         state_obj.code_validator_success = result.success and (result.overall_status == "passed")
         state_obj.code_validator_message = f"Code Validator completed - Status: {result.overall_status}"
-        
+
         logger.info(f"Code Validator Success: {state_obj.code_validator_success}")
         logger.info(f"Overall Status: {result.overall_status}")
-        
+
     except Exception as e:
         logger.error(f"Error in Code Validator Node: {e}")
         state_obj.code_validator_success = False
         state_obj.code_validator_message = f"Code Validator Error: {str(e)}"
         state_obj.code_validator_result = None
-    
+
     return state_obj.dict()
 
 # ---------- Conditional Logic Functions ----------
@@ -859,7 +859,7 @@ def should_proceed_to_delta_analyzer(state: Dict[str, Any]) -> str:
         if not getattr(state_obj, "master_planner_success", False):
             logger.warning("Master planner not successful")
             return "__end__"
-        
+
         approval = getattr(state_obj, "master_planner_approved", None)
 
         logger.info(f"Master Planner approval status : {approval}")
@@ -870,7 +870,7 @@ def should_proceed_to_delta_analyzer(state: Dict[str, Any]) -> str:
         if approval is True or (isinstance(approval, str) and approval.lower() in ["yes", "true" , "approve", "y" , "1"]):
             logger.info("Master Planner is approved and proceed to delta analyzer")
             return "delta_analyzer"
-        
+
         if approval is False or (isinstance(approval, str) and approval.lower() in ["no", "flase", "reject" ,"n" , "0"]):
             logger.info("Plan is rejected by the User")
 
@@ -883,14 +883,14 @@ def should_proceed_to_delta_analyzer(state: Dict[str, Any]) -> str:
             else:
                 logger.info("No additional feedback, ending workflow")
                 return "__end__"
-            
+
         logger.warning(f"Unexpected approval value: {approval}")
         return "__end__"
 
     except Exception as e:
         logger.error(f"Erroe in should_proceed_to_delta_analyzer: {e}")
-        return "__end__"    
-    
+        return "__end__"
+
 def should_proceed_to_code_generator(state: dict) -> str:
     """Handle Delta Analyzer results and proceed to Code Generator if successful"""
     state_obj = ensure_state_schema(state)
@@ -911,26 +911,26 @@ def should_proceed_to_code_validator(state: dict) -> str:
 def should_end_after_validation(state: dict) -> str:
     """Handle Code Validator results - END if passed (and save state), restart from Master Planner if failed"""
     state_obj = ensure_state_schema(state)
-    
+
     if state_obj.code_validator_success:
         # NEW: Save bot state to ledger when validation passes
         # Get current user from the state or use default
         current_user = getattr(state_obj, 'current_user', 'default_user')
         saved_path = save_bot_state_to_ledger(state_obj, current_user)
-        
+
         if saved_path:
             print(f"\n✅ SUCCESS: Bot state has been saved to ledger!")
             print(f"📄 Ledger file: {saved_path}")
-        
+
         return "__end__"  # Validation passed - end the flow
     else:
         # Validation failed - show results and get user feedback
         if state_obj.code_validator_result:
             print_code_validator_results(state_obj.code_validator_result)
-            
+
             # Get user feedback for fixing validation issues
             user_feedback = get_user_feedback_for_validation_failure(state_obj.code_validator_result)
-            
+
             if user_feedback.lower() in ['skip', 'continue']:
                 print("⏭ User chose to skip validation issues. Ending workflow.")
                 return "__end__"
@@ -999,23 +999,23 @@ def print_graph_structure():
 async def main():
     print("\nWelcome to the LangGraph Query Clarifier with Master Planner, Delta Analyzer, Code Generator, and Code Validator")
     print("=" * 110)
-    
+
     current_user = "default_user"
     print(f" Current user: {current_user}")
-    
+
     history = get_user_history(current_user)
     if history:
         print(f" Loaded {len(history)} previous queries from session")
-    
+
     show_help()
-    
+
     while True:
         user_input = input(f"\n[{current_user}] Enter your query: ").strip()
-        
+
         if not user_input:
             print("Please enter a valid input.")
             continue
-        
+
         # Handle special commands (unchanged)
         if user_input.lower() in ["exit", "quit", "q"]:
             print(" Goodbye!")
@@ -1085,24 +1085,24 @@ async def main():
             else:
                 print("Please provide a valid user ID")
             continue
-        
+
         # Main processing
         save_to_history(current_user, user_input)
         history.append(user_input)
-        
+
         # Set up retry loop for failures
         max_retries = 3
         retry_count = 0
         process_completed = False
         current_query = user_input
-        
+
         while retry_count < max_retries and not process_completed:
             state = BotStateSchema(
                 latest_query=current_query,
                 user_history=history,
                 current_user=current_user  # NEW: Add current user to state
             )
-            
+
             # Build LangGraph with Code Validator
             builder = StateGraph(dict)
             builder.add_node("communication_node", communication_node)
@@ -1111,10 +1111,10 @@ async def main():
             builder.add_node("delta_analyzer_node", delta_analyzer_node)
             builder.add_node("code_generator_node", code_generator_node)
             builder.add_node("code_validator_node", code_validator_node)  # NEW NODE
-            
+
             builder.set_entry_point("communication_node")
             builder.add_edge("communication_node", "query_enhancement_node")
-            
+
             builder.add_conditional_edges(
                 "query_enhancement_node",
                 should_proceed_to_master_planner,
@@ -1123,7 +1123,7 @@ async def main():
                     "__end__": "__end__"
                 }
             )
-            
+
             builder.add_conditional_edges(
                 "master_planner_node",
                 should_proceed_to_delta_analyzer,
@@ -1132,7 +1132,7 @@ async def main():
                     "user_feedback": "user_feedback_node",      # 🔄 User wants to modify (NEW!)
                     "__end__": "__end__"                        # ❌ Master Planner failed
                 }
-            )           
+            )
             builder.add_conditional_edges(
                 "delta_analyzer_node",
                 should_proceed_to_code_generator,
@@ -1141,7 +1141,7 @@ async def main():
                     "master_planner": "master_planner_node"
                 }
             )
-            
+
             builder.add_conditional_edges(
                 "code_generator_node",
                 should_proceed_to_code_validator,
@@ -1150,7 +1150,7 @@ async def main():
                     "delta_analyzer": "delta_analyzer_node"
                 }
             )
-            
+
             # NEW: Code Validator conditional edges
             builder.add_conditional_edges(
                 "code_validator_node",
@@ -1160,9 +1160,9 @@ async def main():
                     "master_planner": "master_planner_node"
                 }
             )
-            
+
             graph = builder.compile()
-            
+
             if retry_count == 0:
                 try:
                     ascii_art = graph.get_graph().draw_ascii()
@@ -1171,7 +1171,7 @@ async def main():
                 except Exception as e:
                     logger.warning(f"Unable to draw ASCII graph: {e}")
                     print_graph_structure()
-            
+
             try:
                 # Thread-safe graph execution
                 with graph_lock:
@@ -1181,7 +1181,7 @@ async def main():
                 logger.error(f"Graph execution error: {e}")
                 print(f" Error executing graph: {e}")
                 break
-            
+
             print(f"\n{'='*60}")
             print(f"ATTEMPT {retry_count + 1}/{max_retries}")
             print("=" * 60)
@@ -1189,32 +1189,32 @@ async def main():
             print(f"Context: {final_state.context_notes}")
             print(f"Developer Task: {final_state.developer_task}")
             print(f"Satisfied: {final_state.is_satisfied}")
-            
+
             if not final_state.is_satisfied:
                 print("Suggestions:")
                 for s in final_state.suggestions:
                     print(f"- {s}")
                 break
-            
+
             # Check final results - NOW INCLUDING CODE VALIDATOR
-            if (hasattr(final_state, 'code_validator_success') and final_state.code_validator_success 
+            if (hasattr(final_state, 'code_validator_success') and final_state.code_validator_success
                 and final_state.code_validator_result):
                 # Show all results in order
                 print(f"\n🔄 DELTA ANALYZER RESULTS")
                 print(f"Delta Analyzer Success: {final_state.delta_analyzer_success}")
                 print(f"Delta Analyzer Message: {final_state.delta_analyzer_message}")
                 print_delta_analyzer_results(final_state.delta_analyzer_result)
-                
+
                 print(f"\n💻 CODE GENERATOR RESULTS")
                 print(f"Code Generator Success: {final_state.code_generator_success}")
                 print(f"Code Generator Message: {final_state.code_generator_message}")
                 print_code_generator_results(final_state.code_generator_result)
-                
+
                 print(f"\n🔍 CODE VALIDATOR RESULTS")
                 print(f"Code Validator Success: {final_state.code_validator_success}")
                 print(f"Code Validator Message: {final_state.code_validator_message}")
                 print_code_validator_results(final_state.code_validator_result)
-                
+
                 print("\n🎉 COMPLETE WORKFLOW FINISHED!")
                 print("✅ All agents completed successfully:")
                 print("   • Communication Agent ✓")
@@ -1228,7 +1228,7 @@ async def main():
                 print("=" * 60)
                 process_completed = True
                 break
-                
+
             elif hasattr(final_state, 'code_validator_success') and not final_state.code_validator_success:
                 # Code Validator failed - this is handled by the conditional logic, but we can show info here
                 print(f"\n❌ Code Validation Failed (Attempt {retry_count + 1}/{max_retries})")
@@ -1236,24 +1236,24 @@ async def main():
                     print(f"Validation Status: {final_state.code_validator_result.overall_status}")
                     print(f"Errors Found: {len(final_state.code_validator_result.errors_found)}")
                     print(f"Warnings: {len(final_state.code_validator_result.warnings)}")
-                
+
                 # The conditional logic should have handled getting user feedback and updating the task
                 # If we reach here, it means the workflow is continuing from Master Planner
                 process_completed = False
                 break  # Let the workflow handle the retry
-                
+
             elif final_state.code_generator_success and final_state.code_generator_result:
                 # Show Code Generator results only (Code Validator not reached yet or failed)
                 print(f"\n💻 CODE GENERATOR RESULTS")
                 print(f"Code Generator Success: {final_state.code_generator_success}")
                 print(f"Code Generator Message: {final_state.code_generator_message}")
                 print_code_generator_results(final_state.code_generator_result)
-                
+
                 if hasattr(final_state, 'code_validator_result') and final_state.code_validator_result:
                     print(f"\n🔍 CODE VALIDATOR RESULTS")
                     print(f"Code Validator Success: {final_state.code_validator_success}")
                     print_code_validator_results(final_state.code_validator_result)
-                
+
                 print("\n🎉 PROCESS COMPLETED!")
                 print("✅ Code generation completed.")
                 if hasattr(final_state, 'code_validator_success') and not final_state.code_validator_success:
@@ -1261,7 +1261,7 @@ async def main():
                 print("=" * 60)
                 process_completed = True
                 break
-            
+
             elif hasattr(final_state, 'code_generator_success') and not final_state.code_generator_success:
                 # Code Generator failed - ask for clarification
                 print(f"\n❌ Code Generator Failed (Attempt {retry_count + 1}/{max_retries})")
@@ -1270,7 +1270,7 @@ async def main():
                 print("  • The modification plan is too complex")
                 print("  • The code structure couldn't be understood")
                 print("  • The generated code has syntax errors")
-                
+
                 if retry_count < max_retries - 1:
                     print(f"\n You have {max_retries - retry_count - 1} more attempts.")
                     clarification = input("Could you clarify your task or provide more details? (or 'skip' to continue): ").strip()
@@ -1289,7 +1289,7 @@ async def main():
                 else:
                     print("\n❌ Maximum retry attempts reached.")
                     break
-            
+
             elif hasattr(final_state, 'delta_analyzer_success') and not final_state.delta_analyzer_success:
                 # Delta Analyzer failed - ask for clarification
                 print(f"\n❌ Delta Analyzer Failed (Attempt {retry_count + 1}/{max_retries})")
@@ -1298,7 +1298,7 @@ async def main():
                 print("  • The file analysis is incomplete or incorrect")
                 print("  • The task requirements are too complex")
                 print("  • The modification plan couldn't be generated")
-                
+
                 if retry_count < max_retries - 1:
                     print(f"\n You have {max_retries - retry_count - 1} more attempts.")
                     clarification = input("Could you clarify your task or provide more details? (or 'skip' to continue): ").strip()
@@ -1317,7 +1317,7 @@ async def main():
                 else:
                     print("\n❌ Maximum retry attempts reached.")
                     break
-            
+
             elif not final_state.master_planner_success:
                 # Master Planner failed
                 print(f"\n❌ Master Planner Failed (Attempt {retry_count + 1}/{max_retries})")
@@ -1326,7 +1326,7 @@ async def main():
                 print("  • The specified file doesn't exist")
                 print("  • The task is too vague or abstract")
                 print("  • The project structure doesn't match the task")
-                
+
                 if retry_count < max_retries - 1:
                     print(f"\n You have {max_retries - retry_count - 1} more attempts.")
                     clarification = input("Could you clarify your task or provide more details? (or 'skip' to continue): ").strip()
@@ -1359,7 +1359,7 @@ async def main():
                 else:
                     print("❌ No query provided. Using original query.")
                     break
-        
+
         if not process_completed:
             print("❌ Unable to complete the process. Moving to next query.")
 
