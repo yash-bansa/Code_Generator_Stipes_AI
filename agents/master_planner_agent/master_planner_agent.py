@@ -187,8 +187,9 @@ INSTRUCTIONS:
 
    ** IMPORTANT Note**:
    - Migration refers to the conversion of code from old pyspark version to a newer version.
-   - So if the query contains info related to pyspark update it is a migration query.
+   - So if the query contains info related to pyspark version update then it is a migration query.
    - If it just asks to modify the logic without asking us to migrate from one pyspark version to another then it is not migration.
+   - If u need to modify the pyspark code without doing any changes to its version, then it doesnt qualify as migration, it is a normal code change.
    - if Their is any change related to migration or upgrate the pyspark version use that as a migration as modification type.
    - U must follow the format of the file_path mentioned below in the response format. Don't use backslash, make sure to use forward slash.
    - Always provide the complete file_path, do not deviate from it.
@@ -202,7 +203,7 @@ RESPONSE FORMAT (JSON only):
       "file_name": "file.py",
       "priority": "high|medium|low",
       "needs_modification": true,
-      "modification_type": "data_loading|data_transformation|configuration|testing|utility|new_file|Migration",
+      "modification_type": "data_loading|data_transformation|configuration|testing|utility|new_file|migration",
       "reason": "detailed explanation from RAG analysis",
       "file_info": {{
         "size": 0,
@@ -234,6 +235,7 @@ RESPONSE FORMAT (JSON only):
 - Provide comprehensive reasoning based on RAG analysis
 - Don't add files not mentioned or implied by RAG analysis
 - if RAG mention to include all the files then use all files irrespective of the working and requirement.
+- When u return the modification_type it should be strictly on any one of the types provided in the response format.
 
 ** Important Note**:
 - For user query related to the migration please include all the files mentioned in the list for the modification.
@@ -295,9 +297,11 @@ Return ONLY the JSON response with no additional text.
             cross_file_deps = safe_cross_file_deps if any(safe_cross_file_deps.values()) else None
 
         # Create FileAnalysisResult without suggested_changes and cross_file_dependencies
+        print("I am printing the modification_type from master planner")
+        print(file_analysis.get('modification_type', 'utility'))
         analysis_result = FileAnalysisResult(
             needs_modification=file_analysis.get('needs_modification', True),
-            modification_type=file_analysis.get('modification_type', 'utility'),
+            modification_type=file_analysis.get('modification_type', 'utility').lower(),
             priority=file_analysis.get('priority', 'medium'),
             reason=file_analysis.get('reason', 'Identified by RAG analysis'),
             cross_file_dependencies = cross_file_deps

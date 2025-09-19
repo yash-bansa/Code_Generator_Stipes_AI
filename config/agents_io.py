@@ -52,14 +52,14 @@ class FileAnalysisResult(BaseModel):
     modification_type: Optional[
         Literal[
                 "data_loading",
-                "data_transformation", 
-                "output_handling", 
+                "data_transformation",
+                "output_handling",
                 "configuration",
                 "utility",
                 "new_file",
                 "dependency_update",
                 "testing",
-                "Migration",
+                "migration",
                 ]
     ] = ""
     priority: Literal["high", "medium", "low"] = "low"
@@ -106,7 +106,7 @@ class DeltaAnalyzerInput(BaseModel):
     # NO additional fields needed - keep it clean
 
 class DeltaAnalyzerOutput(BaseModel):
-    modifications: List[Modification] = Field(default_factory=list) 
+    modifications: List[Modification] = Field(default_factory=list)
     new_dependencies: List[str] = Field(default_factory=list)
     testing_suggestions: List[str] = Field(default_factory=list)
     potential_issues: List[str] = Field(default_factory=list)

@@ -443,10 +443,16 @@ async def communication_node(state: dict) -> dict:
     return state_obj.dict()
 
 async def query_enhancement_node(state: dict) -> dict:
+
+    state_obj = ensure_state_schema(state)
+    if state['master_planner_approved'] == True:
+        print("The master planner has been approved, so skipping query enhancer")
+        return state_obj.dict()
+
+
     session_id = state["current_user"]
     print("I am inside query rephrase agent")
 
-    state_obj = ensure_state_schema(state)
     logger.info("Query Enhancement Node: Rephrasing and validating...")
 
     trace = get_or_create_trace(session_id)
@@ -486,10 +492,14 @@ async def query_enhancement_node(state: dict) -> dict:
     return state_obj.dict()
 
 async def master_planner_node(state: dict) -> dict:
+    state_obj = ensure_state_schema(state)
+    if state['master_planner_approved'] == True:
+        print("The master planner has been approved, so skipping master planner")
+        return state_obj.dict()
+
     session_id = state["current_user"]
     trace = get_or_create_trace(session_id)
 
-    state_obj = ensure_state_schema(state)
     logger.info("Master Planner Node: Identifying target files...")
 
     try:
@@ -876,7 +886,7 @@ def should_proceed_to_delta_analyzer(state: Dict[str, Any]) -> str:
             logger.info("Master Planner is approved and proceed to delta analyzer")
             return "delta_analyzer"
 
-        if approval is False or (isinstance(approval, str) and approval.lower() in ["no", "flase", "reject" ,"n" , "0"]):
+        if approval is False or (isinstance(approval, str) and approval.lower() in ["no", "false", "reject" ,"n" , "0"]):
             logger.info("Plan is rejected by the User")
 
             additional_task = getattr(state_obj, "additional_requirement",None)

@@ -780,9 +780,9 @@ async def chat_endpoint(data: dict):
             response_str =  json.dumps(APIResponse(
             session_id=session_id if session_id else "unknown",
             status="error",
-            message=f"An error occurred: {str(e)}",
+            message=f"An error occurred: Please try with a new session",
             data={
-                "error_type": type(e).__name__
+                "error_type": "erroneous session"
             }
         ).dict())
             value = {'index': 0 ,'finish_reason' : f"\n\nError : {response_str}!" , 'delta' : {}, 'usage' : None}
