@@ -78,7 +78,6 @@ class SimpleDatabase:
 
     async def get_file_info_for_vector(self, search_level, conn, query_embedding_str, repo_id, limit):
         if search_level == "file" or search_level == "all":
-            print("inside get_file_info_for_vector")
             file_results = await conn.fetch(f"""
                 SELECT 'file' as type, file_path, file_path as name,
                         embedding <=> $1 as distance,
@@ -94,7 +93,6 @@ class SimpleDatabase:
 
     async def get_class_info_for_vector(self, search_level, conn, query_embedding_str, repo_id, limit):
         if search_level == "class" or search_level == "all":
-            print("inside get_class_info_for_vector")
             class_results = await conn.fetch(f"""
                 SELECT 'class' as type, file_path, class_name as name,
                         embedding <=> $1 as distance,
@@ -110,7 +108,6 @@ class SimpleDatabase:
 
     async def get_function_info_for_vector(self, search_level, conn, query_embedding_str, repo_id, limit):
         if search_level == "function" or search_level == "all":
-            print("inside get_function_info_for_vector")
             function_results = await conn.fetch(f"""
                 SELECT 'function' as type, file_path, function_name as name,
                         embedding <=> $1 as distance,
@@ -311,7 +308,6 @@ class SimpleDocumentGenerator:
             )
             rankings = self._extract_json(response)
             rankings = json.loads(rankings)['data']
-            print("printing rankings:",rankings)
 
             # Apply rankings
             reranked_results = []
@@ -342,7 +338,6 @@ class SimpleDocumentGenerator:
             if clean_term and len(clean_term) > 2 and clean_term not in stop_words:
                 meaningful_terms.append(clean_term)
 
-        print("COMPLETED EXTRACTING QUERY TERMS")
         return meaningful_terms
 
 
@@ -597,9 +592,7 @@ class SimpleDocumentGenerator:
         print("************************ Inside vector search for semantic similarity **************************")
         # query_embedding = self.embedding_client.embed_query(query)
         query_embedding = await self._create_embedding(query)
-        print("query embedding type", type(query_embedding))
         search_level = self._map_focus_to_search_level(focus_area)
-        print("** Search LEVEL **", search_level)
 
         vector_results = await self.simple_database_obj.search_by_vector(
             query_embedding, repo_id, search_level=search_level, limit=max_results
@@ -742,7 +735,6 @@ class SimpleDocumentGenerator:
 
     def _map_focus_to_search_level(self, focus_area: str) -> str:
         """Map focus area to database search level."""
-        print("INSIDE MAP FOCUS TO SEARCH LEVEL")
         mapping = {
             "files": "file",
             "classes": "class",

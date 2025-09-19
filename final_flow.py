@@ -666,6 +666,12 @@ async def delta_analyzer_node(state: dict) -> dict:
                 state_obj.delta_analyzer_result = None
                 return state_obj.dict()
 
+            final_target_files = []
+            for target_file in target_files:
+                if target_file.analysis.needs_modification == True:
+                    final_target_files.append(target_file)
+
+            target_files = final_target_files
             result_delta = await delta_analyzer_agent.create_modification_plan(target_files,parsed_config,user_query)
 
             span.update(
