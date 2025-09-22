@@ -417,8 +417,22 @@ class SimpleDocumentGenerator:
 
             Available Tools:
             1. **identify_file** - Use when user specifies exact file/class/function names
-            - Parameters: type ("file"|"class"|"function"), name (string)
-            - Examples: "find UserService class", "show login.py file", "get authenticate function"
+            - A single query can contain multiple file names, class names or function names.
+            - Return them in the parameters separated by commas.
+            - Usage: "find UserService class", "show login.py file", "get authenticate function"
+            - Example:
+                Query -> Add proper exceptions for the python file read_csv.py and transform.py.
+                        Also add docstrings for the class FeatureEngineering and function func1
+                {{
+                "tool_name" : "identify_file",
+                "parameters" : {{ "parameter_info" :
+                    [{{"type": "file", "name": "read_csv.py, transform.py"}}, {{"type": "class", "name":"FeatureEngineering"}}, {{"type": "function", "name":"func1"}}]
+                }},
+                "reasoning" : "Explain why this tool was chosen over the other tools for this query."
+                }}
+            Note :
+                In case if any of the file or class or function is not provided in the query. Dont include that in the parameters.
+                Only include what is present in the query.
 
             2. **hybrid_search** - Use for complex queries requiring semantic understanding.
             - Parameters: query(string), focus_area ("files"|"classes"|"functions"|"all")
@@ -434,7 +448,6 @@ class SimpleDocumentGenerator:
             - If query contains specific names such as file names, classes , function names -> use identify_file
             - If query is conceptual/semantic (logic, patterns, behavior) -> use hybrid_search
             - If query asks for specific code patterns/keywords -> use keyword_match
-            -
 
             Return JSON with your decision:
             {{
@@ -459,11 +472,6 @@ class SimpleDocumentGenerator:
             )
             clean_json_string = self._extract_json(response)
             decision = json.loads(clean_json_string)
-
-            self.logger.info(f"LLM selected tool: {decision['tool_name']}")
-            self.logger.info("*******************************************************************************")
-            self.logger.info(f"Reasoning: {decision.get('reasoning','No reason provided')}")
-
             return decision
 
         except Exception as e:
@@ -482,15 +490,17 @@ class SimpleDocumentGenerator:
         parameters = tool_call["parameters"]
 
         if tool_name == "identify_file":
-            print("************************ Inside Identify Files ********************")
-            return await self._tool_identify_file(
-                type=parameters["type"],
-                name=parameters["name"],
-                repo_id=repo_id
-            )
+            self.logger.info("************************ Inside Identify Files ********************")
+            result_list = []
+            for info_type in parameters['parameter_info']:
+                identified_result = await self._tool_identify_file(type=info_type["type"],
+                name=info_type["name"],
+                repo_id=repo_id)
+                result_list.extend(identified_result)
+            return result_list
 
         elif tool_name == "hybrid_search":
-            print("******************* Inside Hybrid Search tool *********************")
+            self.logger.info("******************* Inside Hybrid Search tool *********************")
             return await self._tool_hybrid_search(
                 query = parameters["query"],
                 repo_id=repo_id,
@@ -499,8 +509,8 @@ class SimpleDocumentGenerator:
             )
 
         elif tool_name == "keyword_match":
-            print("********************* Inside tool keyword match *********************")
-            print("KEYWORDS:", parameters["keywords"])
+            self.logger.info("********************* Inside tool keyword match *********************")
+            self.logger.info(f"KEYWORDS: {parameters['keywords']}")
             return await self._tool_keyword_match(
                 keywords=parameters["keywords"],
                 repo_id=repo_id,
@@ -519,7 +529,6 @@ class SimpleDocumentGenerator:
     def convert_to_search_result_object_for_file_identification_tool(self, results, type, name):
         search_results = []
         for row in results:
-            print("------------------ type of ", row['type'])
             if type == "file":
                 variable = row["file_path"]
             elif type == "class":
@@ -766,7 +775,7 @@ class SimpleDocumentGenerator:
 
     async def search_file_by_name(self, repo_id: str, name: str):
         files = [file.strip() for file in name.split(',')]
-        print("FILESSS:", files)
+        self.logger.info(f"FILESSS:  {files}")
         conditions = []
         params = [repo_id] # Start with repo_id as first parameter
         param_index = 2 # Start from $2 since $1 is repo_id
@@ -796,7 +805,7 @@ class SimpleDocumentGenerator:
 
         """Search for classes by exact name."""
         classes = [file.strip() for file in name.split(',')]
-        print("Classes:", classes)
+        self.logger.info(f"Classes:  {classes}")
         conditions = []
         params = [repo_id] # Start with repo_id as first parameter
         param_index = 2 # Start from $2 since $1 is repo_id
@@ -824,7 +833,7 @@ class SimpleDocumentGenerator:
         """Search for functions by exact name."""
 
         functions = [file.strip() for file in name.split(',')]
-        print("Functions:", functions)
+        self.logger.info(f"Functions:  {functions}")
         conditions = []
         params = [repo_id] # Start with repo_id as first parameter
         param_index = 2 # Start from $2 since $1 is repo_id
