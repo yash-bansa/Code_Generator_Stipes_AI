@@ -180,4 +180,17 @@ class RedisSessionManager:
         else:
             return {"status" : f"session {session_id} doesn't exist" }
 
+    def clear_cache(self):
+        print("Clearing the cache")
+        session_dict= self.get_all_sessions()
+        session_list = session_dict['sessions']
+        for key_info in session_list:
+            session_id = key_info.split(":")[1]
+            history_key = f"session:{session_id}:history"
+            key = f"session:{session_id}:state"
+            if redis_client.exists(key):
+                redis_client.delete(key)
+                redis_client.delete(history_key)
+        return {"status" : f"Cache cleared"}
+
 session_manager_redis = RedisSessionManager()

@@ -400,7 +400,8 @@ def get_or_create_trace(session_id: str):
     trace = langfuse.trace(
         id = session_id,
         session_id = session_id,
-        name = "multi_agent_workflow"
+        name = f"multi_agent_workflow_{session_id}",
+        environment="test_env"
     )
     return trace
 
@@ -415,23 +416,21 @@ async def communication_node(state: dict) -> dict:
 
     trace = get_or_create_trace(session_id)
 
-    span = trace.span(
-        name = "communication_agent_step"
-    )
-
-
     comm_input = CommunicationInput(
         user_query=state_obj.latest_query,
         conversation_history=state_obj.user_history[:-1] if len(state_obj.user_history) > 1 else []
     )
 
+    generation = trace.generation(
+        name="communication_agent_step",
+        model="gpt-4o",
+        input=comm_input.model_dump()
+    )
+
     result: CommunicationOutput = await communication_agent.extract_intent(comm_input)
 
-    span.update(
-        input = comm_input.model_dump(),
-        output = result.model_dump()
-    )
-    span.end()
+    generation.update(output=result.model_dump())
+    generation.end()
 
     state_obj.core_intent = result.core_intent
     state_obj.context_notes = result.context_notes
@@ -457,22 +456,19 @@ async def query_enhancement_node(state: dict) -> dict:
 
     trace = get_or_create_trace(session_id)
 
-    span = trace.span(
-        name = "query_rephrase_agent_step"
-    )
-
     enhancer_input = QueryEnhancerInput(
         core_intent=state_obj.core_intent,
         context_notes=state_obj.context_notes
     )
 
-    result: QueryEnhancerOutput = await query_rephraser_agent.enhance_query(enhancer_input)
-
-    span.update(
-        input = enhancer_input.model_dump(),
-        output = result.model_dump()
+    generation = trace.generation(
+        name="query_rephrase_agent_step",
+        model="gpt-4o",
+        input=enhancer_input.model_dump()
     )
-    span.end()
+    result: QueryEnhancerOutput = await query_rephraser_agent.enhance_query(enhancer_input)
+    generation.update(output=result.model_dump())
+    generation.end()
 
     state_obj.developer_task = result.developer_task
     state_obj.is_satisfied = result.is_satisfied
@@ -521,15 +517,14 @@ async def master_planner_node(state: dict) -> dict:
 
                     result = await config_generator_agent.analyze_dependencies(dependency_input)
 
-                    span = trace.span(
-                        name = "dependency_extractor_agent_step"
-                    )
 
-                    span.update(
-                    input = dependency_input.model_dump(),
-                    output = result
+                    generation = trace.generation(
+                    name="dependency_extractor_agent_step",
+                    model="gpt-4o",
+                    input=dependency_input.model_dump()
                     )
-                    span.end()
+                    generation.update(output=result)
+                    generation.end()
 
                     val["file_path"] = table
                     val["updated_config"] = result
@@ -564,15 +559,15 @@ async def master_planner_node(state: dict) -> dict:
                     Document = DocumentGeneratorAgent()
                     rag_output = await Document.generate_document(input_data)
                     req_rag_output = rag_output.generated_doc
-                    span = trace.span(
-                        name = "document_generator_agent_step"
-                    )
 
-                    span.update(
-                    input = input_data.model_dump(),
-                    output = rag_output.model_dump()
+                    generation = trace.generation(
+                    name="document_generator_agent_step",
+                    model="gpt-4o",
+                    input=input_data.model_dump()
                     )
-                    span.end()
+                    generation.update(output=rag_output.model_dump())
+                    generation.end()
+
             else:
                 print("simple code generation node")
                 input_data = DocumentGeneratorInput(
@@ -583,14 +578,14 @@ async def master_planner_node(state: dict) -> dict:
                 rag_output = await Document.generate_document(input_data)
                 req_rag_output = rag_output.generated_doc
 
-                span = trace.span(
-                    name = "document_generator_agent_step"
+
+                generation = trace.generation(
+                name="document_generator_agent_step",
+                model="gpt-4o",
+                input=input_data.model_dump()
                 )
-                span.update(
-                input = input_data.model_dump(),
-                output = rag_output.model_dump()
-                )
-                span.end()
+                generation.update(output=rag_output.model_dump())
+                generation.end()
 
         if req_rag_output is None:
             print("did not get rag output")
@@ -614,9 +609,7 @@ async def master_planner_node(state: dict) -> dict:
 
         state_obj.parsed_config = parsed_config
 
-        span = trace.span(
-                    name = "master_planner_agent_step"
-                )
+
         planner_input = MasterPlannerInput(
             parsed_config=parsed_config,
             user_question=state_obj.developer_task
@@ -625,11 +618,14 @@ async def master_planner_node(state: dict) -> dict:
 
         result: MasterPlannerOutput = await master_planner_agent.identify_target_files(planner_input, rag_result=req_rag_output)
 
-        span.update(
-                input = planner_input.model_dump(),
-                output = result.model_dump()
-                )
-        span.end()
+
+        generation = trace.generation(
+        name="master_planner_agent_step",
+        model="gpt-4o",
+        input=planner_input.model_dump()
+        )
+        generation.update(output=result.model_dump())
+        generation.end()
 
         state_obj.master_planner_result = result.files_to_modify
         state_obj.master_planner_success = result.success
@@ -650,9 +646,6 @@ async def master_planner_node(state: dict) -> dict:
 async def delta_analyzer_node(state: dict) -> dict:
     session_id = state["current_user"]
     trace = get_or_create_trace(session_id)
-    span = trace.span(
-        name = "delta_analyzer_agent_step"
-    )
     state_obj = ensure_state_schema(state)
     logger.info("Delta Analyzer Node: Creating modification plan...")
 
@@ -684,19 +677,24 @@ async def delta_analyzer_node(state: dict) -> dict:
             target_files = final_target_files
             result_delta = await delta_analyzer_agent.create_modification_plan(target_files,parsed_config,user_query)
 
-            span.update(
-                input = delta_analyzer_input_dict,
-                output = result_delta
+            generation = trace.generation(
+            name="delta_analyzer_agent_step",
+            model="gpt-4o",
+            input=delta_analyzer_input_dict
             )
+            generation.update(output=result_delta)
+            generation.end()
 
-            span.end()
         else:
             result_delta = "its a config change"
-            span.update(
-                input = "Not required for config change",
-                output = result_delta
+            generation = trace.generation(
+            name="delta_analyzer_agent_step",
+            model="gpt-4o",
+            input="Delta analyzer agent is not required in config change."
             )
-            span.end()
+            generation.update(output=result_delta)
+            generation.end()
+
 
         state_obj.delta_analyzer_result = result_delta
         state_obj.delta_analyzer_success = True
@@ -715,9 +713,6 @@ async def delta_analyzer_node(state: dict) -> dict:
 async def code_generator_node(state: dict) -> dict:
     session_id = state["current_user"]
     trace = get_or_create_trace(session_id)
-    span = trace.span(
-        name = "code_generator_agent_step"
-    )
 
     state_obj = ensure_state_schema(state)
     logger.info("Code Generator Node: Generating code modifications...")
@@ -740,11 +735,14 @@ async def code_generator_node(state: dict) -> dict:
 
         # Generate code modifications
             result: CodeGeneratorOutput = await code_generator_agent.generate_code_modifications(generator_input)
-            span.update(
-                input = generator_input,
-                output = result.model_dump()
+
+            generation = trace.generation(
+            name="code_generator_agent_step",
+            model="claude-3-7-sonnet-latest",
+            input=generator_input
             )
-            span.end()
+            generation.update(output=result.model_dump())
+            generation.end()
         else:
             result = {
                 "success" : True,
@@ -764,11 +762,14 @@ async def code_generator_node(state: dict) -> dict:
                 "execution_time" : 0
             }
             result = CodeGeneratorOutput(**result)
-            span.update(
-                input = state_obj.updated_config,
-                output = result.model_dump()
+
+            generation = trace.generation(
+            name="code_generator_agent_step",
+            model="claude-3.7-sonnet-latest",
+            input=state_obj.updated_config
             )
-            span.end()
+            generation.update(output=result.model_dump())
+            generation.end()
 
 
         state_obj.code_generator_result = result
@@ -791,9 +792,6 @@ async def code_generator_node(state: dict) -> dict:
 async def code_validator_node(state: dict) -> dict:
     session_id = state["current_user"]
     trace = get_or_create_trace(session_id)
-    span = trace.span(
-        name = "code_validator_agent_step"
-    )
 
     state_obj = ensure_state_schema(state)
     logger.info("Code Validator Node: Validating generated code...")
@@ -812,11 +810,15 @@ async def code_validator_node(state: dict) -> dict:
 
             # Validate the generated code
             result: CodeValidatorOutput = await code_validator_agent.validate_code_changes(validator_input)
-            span.update(
-                input = validator_input,
-                output = result.model_dump()
+
+            generation = trace.generation(
+            name="code_validator_agent_step",
+            model="gpt-4o",
+            input=validator_input
             )
-            span.end()
+            generation.update(output=result.model_dump())
+            generation.end()
+
         else:
             updated_config = state_obj.updated_config
             result = CodeValidatorOutput(success=True,
@@ -836,11 +838,14 @@ async def code_validator_node(state: dict) -> dict:
                                          suggestions=[],
                                          execution_time= 0.00,
                                          timestamp= datetime.now().isoformat())
-            span.update(
-                input = updated_config,
-                output = result.model_dump()
+
+            generation = trace.generation(
+            name="code_validator_agent_step",
+            model="gpt-4o",
+            input=updated_config
             )
-            span.end()
+            generation.update(output=result.model_dump())
+            generation.end()
 
         state_obj.code_validator_result = result
         state_obj.code_validator_success = result.success and (result.overall_status == "passed")

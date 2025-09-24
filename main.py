@@ -813,6 +813,11 @@ async def list_sessions():
 async def delete_session(session_id: str):
     return session_manager_redis.delete_session(session_id)
 
+
+@app.delete("/clear_cache")
+async def clear_cache():
+    return session_manager_redis.clear_cache()
+
 @app.get("/session/{session_id}/history")
 async def get_session_history(session_id: str):
     """Get conversation history for a session"""

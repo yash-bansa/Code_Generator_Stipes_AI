@@ -12,3 +12,4 @@ wheels/
 
 test.ipynb
 test_doc_gen_agent.ipynb
+test_langfuse.ipynb
