@@ -33,3 +33,4 @@ uvicorn
 asyncpg
 boto3
 langchain_openai
+streamlit
