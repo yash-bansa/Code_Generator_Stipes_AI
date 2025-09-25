@@ -93,9 +93,6 @@ logger.info("Agents initialized successfully!")
 from session_manager_redis import session_manager_redis
 from workflow_handler import workflow_handler
 # Import your existing helper functions
-from final_flow import (
-    get_user_history, save_to_history, save_bot_state_to_ledger
-)
 
 async def _generate_response(session_id: str, state: BotStateSchema, session: Dict) -> APIResponse:
     """Generate appropriate API response based on workflow state"""
@@ -305,11 +302,11 @@ async def _generate_response(session_id: str, state: BotStateSchema, session: Di
                 }
             )
         # Save to ledger
-        try:
-            saved_path = save_bot_state_to_ledger(state, state.current_user)
-        except Exception as e:
-            logger.error(f"Failed to save to ledger: {e}")
-            saved_path = "Error saving to ledger"
+        # try:
+        #     saved_path = save_bot_state_to_ledger(state, state.current_user)
+        # except Exception as e:
+        #     logger.error(f"Failed to save to ledger: {e}")
+        #     saved_path = "Error saving to ledger"
         session_manager_redis.update_session(session_id, {
             "status": "completed",
             "current_stage": "completed"
@@ -342,10 +339,10 @@ async def _generate_response(session_id: str, state: BotStateSchema, session: Di
             status="completed",
             message="Workflow completed successfully! Code validation passed.",
             workflow_stage="completed",
-            data={
-                "ledger_path": saved_path,
-                "completion_time": datetime.now().isoformat()
-            },
+            # data={
+            #     "ledger_path": saved_path,
+            #     "completion_time": datetime.now().isoformat()
+            # },
             results=results
         )
     # Default processing response
@@ -398,6 +395,8 @@ def clean_completed_output(code_gen_response_dict, double_line):
             code_gen_response += "File content : " + "\n```diff\n"
             code_gen_response += file_detail["modified_content"] + double_line
             code_gen_response += "\n```" + double_line
+    print("#"*10)        
+    print(code_gen_response)        
     return code_gen_response
 
 def get_specific_response_for_display(response):

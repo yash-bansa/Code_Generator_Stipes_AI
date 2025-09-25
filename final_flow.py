@@ -47,57 +47,6 @@ code_validator_agent = CodeValidatorAgent()  # NEW: Code Validator Agent
 config_generator_agent = DependencyExtractorAgent()
 print("Agents initialized successfully!")
 
-# NEW: Function to save bot state to JSON when validation passes
-def save_bot_state_to_ledger(state: BotStateSchema, user_id: str):
-    """Save bot state to JSON file in ledger folder when code validation passes"""
-    try:
-        # Create ledger directory if it doesn't exist
-        ledger_dir = Path("ledger")
-        ledger_dir.mkdir(exist_ok=True)
-
-        # Generate filename with user ID and timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{user_id}_{timestamp}.json"
-        file_path = ledger_dir / filename
-
-        # Convert state to dictionary and handle datetime serialization
-        state_dict = state.dict()
-
-        # Convert datetime objects to ISO format strings for JSON serialization
-        def convert_datetime_to_str(obj):
-            if isinstance(obj, datetime):
-                return obj.isoformat()
-            elif isinstance(obj, dict):
-                return {k: convert_datetime_to_str(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_datetime_to_str(item) for item in obj]
-            else:
-                return obj
-
-        state_dict = convert_datetime_to_str(state_dict)
-
-        # Add metadata
-        ledger_entry = {
-            "user_id": user_id,
-            "timestamp": timestamp,
-            "saved_at": datetime.now().isoformat(),
-            "validation_status": "PASSED",
-            "bot_state": state_dict
-        }
-
-        # Save to JSON file
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(ledger_entry, f, indent=2, ensure_ascii=False)
-
-        logger.info(f"Bot state saved to ledger: {file_path}")
-        print(f"📁 Bot state saved to ledger: {file_path}")
-
-        return str(file_path)
-
-    except Exception as e:
-        logger.error(f"Error saving bot state to ledger: {e}")
-        print(f"❌ Error saving bot state to ledger: {e}")
-        return None
 
 # [Keep all existing helper functions unchanged...]
 def get_user_history(user_id: str = "default_user") -> List[str]:
@@ -936,11 +885,6 @@ def should_end_after_validation(state: dict) -> str:
         # NEW: Save bot state to ledger when validation passes
         # Get current user from the state or use default
         current_user = getattr(state_obj, 'current_user', 'default_user')
-        saved_path = save_bot_state_to_ledger(state_obj, current_user)
-
-        if saved_path:
-            print(f"\n✅ SUCCESS: Bot state has been saved to ledger!")
-            print(f"📄 Ledger file: {saved_path}")
 
         return "__end__"  # Validation passed - end the flow
     else:
