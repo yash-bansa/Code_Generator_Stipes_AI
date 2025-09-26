@@ -24,9 +24,16 @@ class MasterPlannerAgent:
             with open(config_path, "r") as f:
                 config = yaml.safe_load(f)
             self.system_prompt = config.get("system_prompt", "You are a Code Identifier Agent.")
+            self.analyze_with_rag_prompt = config.get("analyze_with_rag_prompt")
+            self.detect_migration_prompt = config.get("detect_migration_prompt")
+            self.detect_migration_type_prompt = config.get("detect_migration_type_prompt")
         except Exception as e:
             logger.error(f"[MasterPlannerAgent] Failed to load system prompt: {e}")
             self.system_prompt = "You are a RAG-powered Code Identifier Agent that creates file modification plans based on RAG analysis output."
+            self.analyze_with_rag_prompt = "You need to analyze rag_input and create target_files"
+            self.detect_migration_prompt = "You have to detect whether this is a migration request or not"
+            self.detect_migration_type_prompt = "You have to detect the type of migration"
+
     async def identify_target_files(self, input_data: MasterPlannerInput, rag_result: str) -> MasterPlannerOutput:
         """
         Identify target files based solely on RAG agent output with comprehensive validation
@@ -152,101 +159,8 @@ class MasterPlannerAgent:
                                    config: Dict[str, Any], specific_files: List[str] = None) -> List[Dict[str, Any]]:
         """Create file identification plan using only RAG output"""
 
-        prompt = f"""
-You are a Code Identifier Agent that creates detailed file modification plans based on RAG (Retrieval-Augmented Generation) analysis output.
+        prompt = self.analyze_with_rag_prompt.format(user_query=user_query, rag_output = rag_output, config=json.dumps(config, indent=2), specific_files=specific_files)
 
-USER QUERY: "{user_query}"
-
-RAG ANALYSIS RESULT:
-{rag_output}
-
-CONFIGURATION:
-{json.dumps(config, indent=2)}
-
-SPECIFIC FILES MENTIONED BY USER: {specific_files or "None"}
-TASK:
-Based on the RAG analysis output, identify which files need to be created or modified and provide detailed specifications for each file.
-INSTRUCTIONS:
-1. **Extract File Information**: From the RAG output, identify all files that need to be created or modified
-2. ** Migration Query Information** : if its migration please takes all files under consideration irrespective of the file type, Functionality and and requirement make all files be there in the plan.
-3. **Identify Cross-File Dependencies** : For each file, determine which other files it depends on or affects
-4. **Create File Specifications**: For each file, provide detailed information including:
-   - Complete file path (can be relative or absolute as provided by RAG)
-   - Detailed analysis of what needs to be modified
-   - Priority level based on importance
-   - Cross-file dependencies and relationships
-5. **Handle Different File Types**:
-   - **Existing files to modify**: Extract current structure and modification requirements
-   - **New files to create**: Provide complete specifications for creation
-   - **Configuration files**: Include any config files mentioned in RAG output
-6. **Priority Rules**:
-   - Files specifically mentioned by user = HIGH priority
-   - Core functionality files = HIGH priority
-   - Supporting/utility files = MEDIUM priority
-   - Test/documentation files = LOW priority
-
-   ** IMPORTANT Note**:
-   - Migration refers to the conversion of code from old pyspark version to a newer version.
-   - So if the query contains info related to pyspark version update then it is a migration query.
-   - If it just asks to modify the logic without asking us to migrate from one pyspark version to another then it is not migration.
-   - If u need to modify the pyspark code without doing any changes to its version, then it doesnt qualify as migration, it is a normal code change.
-   - if Their is any change related to migration or upgrate the pyspark version use that as a migration as modification type.
-   - U must follow the format of the file_path mentioned below in the response format. Don't use backslash, make sure to use forward slash.
-   - Always provide the complete file_path, do not deviate from it.
-   - Don't any new file which is not present in rag output strictly.
-
-RESPONSE FORMAT (JSON only):
-{{
-  "identified_files": [
-    {{
-      "file_path": "complete/path/to/file.py",
-      "file_name": "file.py",
-      "priority": "high|medium|low",
-      "needs_modification": true,
-      "modification_type": "data_loading|data_transformation|configuration|testing|utility|new_file|migration",
-      "reason": "detailed explanation from RAG analysis",
-      "file_info": {{
-        "size": 0,
-        "exists": true,
-        "extension": ".py",
-        "is_python": true
-      }},
-      "rag_context": "relevant context from RAG output for this file"
-      "cross_file_dependencies": {{
-        "depends_on": ["path/to/dependency1.py"]
-        "affects": ["path/to/affected1.py"]
-        "imports_from": ["module1"]
-        "imported_by": ["file1.py"]
-        "dependency_reason": "explanation of why these dependencies exist"
-      }}
-    }}
-  ],
-  "analysis_summary": "summary of the file identification based on RAG output",
-  "total_files": 0,
-  "confidence_level": "high|medium|low"
-}}
-**IMPORTANT REQUIREMENTS**:
-- Base ALL file identification on the RAG analysis output
-- Include comprehensive cross-file dependency analysis
-- If RAG mentions specific files, include them with appropriate priority
-- If user mentioned specific files, ensure they are included with high priority
-- Create complete file specifications even if files don't exist (RAG may suggest new files)
-- Include detailed dependency relationships and reasoning
-- Provide comprehensive reasoning based on RAG analysis
-- Don't add files not mentioned or implied by RAG analysis
-- if RAG mention to include all the files then use all files irrespective of the working and requirement.
-- When u return the modification_type it should be strictly on any one of the types provided in the response format.
-
-** Important Note**:
-- For user query related to the migration please include all the files mentioned in the list for the modification.
-- make sure that, If the query is based on migration then assign modification_type to migration else assign one of the values mentioned above.
-- Examples:
-    1. modification_type = migration.
-       query -> I need to migrate the file app.py to pyspark version 3.5.
-       query -> I want to conver the whole repository to pyspark version 3.5
-
-Return ONLY the JSON response with no additional text.
-"""
         try:
             logger.info("🤖 Processing RAG output for file identification...")
 
@@ -280,7 +194,6 @@ Return ONLY the JSON response with no additional text.
         # Extract file information
         file_path = file_analysis.get('file_path', '')
         file_info = file_analysis.get('file_info', {})
-        # structure = file_analysis.get('structure', {})
 
         cross_file_deps = file_analysis.get("cross_file_dependencies", {})
         if cross_file_deps is None:
@@ -370,42 +283,7 @@ Return ONLY the JSON response with no additional text.
         return response.strip()
 
     async def detect_migration_with_llm(self,user_query: str) -> Dict[str, Any] :
-
-        detection_prompt = f"""
-    Analyze this user query to determine if its requesting code migartion or regular modifications.
-
-    USER QUERY: "{user_query}"
-
-    Determine:
-    1. Is this a migration request (moving from one Framework/version to another)?
-    2. Or is this a regular modification request (adding features, fixing bugs, etc.)?
-
-    Consider these as Migration:
-    -Framework changes (Django to Flask , React to Vue, etc.)
-    - Version upgrades (Python 2 to 3 , Django 3.2 to 4.2, etc.)
-    - Technology conversions (REST to GraphQL, SQL to NoSQL, etc.)
-    - Modernization of entire codebase
-
-    Consider these as MODIFICATION:
-    - Adding new features or functions
-    - Bug fixes and improvements
-    - Code Optimization
-    - Adding database migration (not code migration)
-    - Configuration changes
-    - Adding tests or documentation
-
-    Return JSON:
-    {{
-    "is_migration" : true/false,
-    "confidence": 0.0 - 1.0,
-    "reasoning" : "explanation of decision",
-    "migration_details" : {{
-        "source": "detected source technology/version",
-        "target": "detected target technology/version",
-        "type" : "framework_change|version_upgrade|modernization"
-    }}
-    }}
-"""
+        detection_prompt = self.detect_migration_prompt.format(user_query=user_query)
         try:
             response = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": detection_prompt}],
@@ -461,37 +339,7 @@ Return ONLY the JSON response with no additional text.
             return [DEFAULT_REPO]
 
     async def detect_migration_type_with_llm(self, user_query: str) -> bool:
-
-        prompt = f"""
-    You are an intelligent agent tasked to classify the type of code migration based on a users query.
-    The task is to determine wheather the query is referring to one of the following:
-    1. Repository-level migration (moving or updating an entire repository).
-    2. Single file migration(modification for one specific file only).
-    3. multiple files migration (changes involving a subset of files like a batch).
-
-    Your output must strictly be one of the following:
-    -"repository_migration"
-    -"single_file_migration"
-    -"multiple_files_migration"
-
-    If the query does not give enough context, default to "repository_migration"
-
-    examples-
-    1. Can you help migrate file1.py? --- "single_file_migration"
-    2. Can you help migrate file1.py and file2.py? --- "multiple_files_migration"
-    3. I want to migrate the entire repo reponame ? --- "repository_migration"
-
-    INSTRUCTIONS:-
-    - So if any specific python file name is mention it was single or multiple file migration.
-    - And if no python names are present or repo name is present then it was repository migration.
-
-    Here  is the user query:
-
-    ---
-    Query: "{user_query}"
-    ---
-    What type of migration does this query refer to? Respond only with the type (no explanations).
-"""
+        prompt = self.detect_migration_type_prompt.format(user_query=user_query)
         try:
             raw_response = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": prompt}]

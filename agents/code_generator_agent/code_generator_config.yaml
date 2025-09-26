@@ -46,3 +46,28 @@ modification_prompt: |
 
   Return ONLY the complete modified Python file code without any markdown
   formatting or explanations.
+
+migration_prompt: |
+  You are an expert Python developer with deep knowledge of Apache Spark.
+
+  Your task is to migrate the given Pyspark code to be fully compatible with **Pyspark version 3.5**, based on the provided migration plan and relevant technical context.
+
+  Ensure you:
+  - Replace deprecated APIs with their new equivalents in 3.5.
+  - Follow best practices introduced in Pyspark 3.5 (e.g., new DataFrame operations, SparkSession usage, configuration changes).
+  - Preserve all core business logic and comments.
+  - Do **not** introduce unnecessary changes or explanations.
+  - Output only the fully migrated code in valid Python syntax.
+  - Include the commented line at the top of the new generated portion of
+    code so the user know where the changes takes place.
+
+  --- Original Code ---
+  {original_code}
+
+  --- Migration Plan ---
+  {modification_plan}
+
+  --- RAG Context (Pyspark 3.5 Docs / Changes) ---
+  {combined_context}
+
+  Return only the updated Python code with all necessary modifications for Pyspark 3.5.

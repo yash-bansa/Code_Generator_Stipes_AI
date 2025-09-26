@@ -39,6 +39,7 @@ class CodeGeneratorAgent:
                 self.config = yaml.safe_load(f)
             self.system_prompt = self.config["system_prompt"]
             self.modification_prompt = self.config["modification_prompt"]
+            self.migration_prompt = self.config["migration_prompt"]
         except Exception as e:
             logger.error(f"[CodeGeneratorAgent] Failed to load config: {e}")
             self._load_default_config()
@@ -83,6 +84,7 @@ class CodeGeneratorAgent:
             Current code:
             {current_content}
             Return ONLY the complete modified Python file code."""
+        self.migration_prompt = "Migrate the version of pyspark to 3.5"
 
     async def generate_code_modifications(self, input_data: CodeGeneratorInput) -> CodeGeneratorOutput:
         """Main method to generate code modifications based on DeltaAnalyzer plan"""
@@ -148,14 +150,10 @@ class CodeGeneratorAgent:
         # Extract modifications from DeltaAnalyzer suggestions
         modifications = suggestions.get("modifications", [])
 
-        # if not modifications:
-        #     logger.info(f"[CodeGeneratorAgent] No modifications specified for {file_path}")
-        #     return None
-
         # Try different modification approaches
         modified_content = None
 
-        if modification_type == "Migration":
+        if modification_type.lower() == "migration":
             modified_content = await self.generate_migrated_code_with_rag(current_content, modifications)
 
         else:
@@ -446,31 +444,7 @@ class CodeGeneratorAgent:
         context = str(context)
         combined_context = context
 
-        # Pyspark 3.5 specific migration prompt
-        llm_prompt = f"""You are an expert Python developer with deep knowledge of Apache Spark.
-
-            Your task is to migrate the given Pyspark code to be fully compatible with **Pyspark version 3.5**, based on the provided migration plan and relevant technical context.
-
-            Ensure you:
-            - Replace deprecated APIs with their new equivalents in 3.5.
-            - Follow best practices introduced in Pyspark 3.5 (e.g., new DataFrame operations, SparkSession usage, configuration changes).
-            - Preserve all core business logic and comments.
-            - Do **not** introduce unnecessary changes or explanations.
-            - Output only the fully migrated code in valid Python syntax.
-            - Include the commented line at the top of the new generated portion of
-              code so the user know where the changes takes place.
-
-            --- Original Code ---
-            {original_code}
-
-            --- Migration Plan ---
-            {modification_plan}
-
-            --- RAG Context (Pyspark 3.5 Docs / Changes) ---
-            {combined_context}
-
-            Return only the updated Python code with all necessary modifications for Pyspark 3.5.
-        """
+        llm_prompt = self.migration_prompt.format(original_code=original_code, modification_plan = modification_plan, combined_context= combined_context)
 
         # Call the LLM to get the migrated code (e.g., OpenAI, vLLM, local model)
         response = await llm_client.chat_completion(
@@ -684,47 +658,3 @@ class CodeGeneratorAgent:
             "needs_modification": len(changes) > 0,
             "changes": changes
         }
-
-    def invoke_claude_sonnet(self, prompt, max_tokens=10000):
-        # Model ID for Claude 3.7 Sonnet
-        aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID", "")
-        aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY", "")
-        service_name = os.getenv("AWS_SERVICE_NAME","")
-        region_name = os.getenv("AWS_REGION_NAME","")
-        config = Config(read_timeout=10000)
-        bedrock_runtime = boto3.client(
-            service_name=service_name,
-            region_name=region_name,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            config=config
-        )
-        model_id = os.getenv("AWS_MODEL_ID", "")
-
-        # Prepare the request body
-        body = {
-            "anthropic_version" : "bedrock-2023-05-31",
-            "max_tokens": max_tokens,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        }
-
-        try:
-            # Invoke the model
-            response = bedrock_runtime.invoke_model(
-                modelId=model_id,
-                body=json.dumps(body),
-                contentType='application/json'
-            )
-
-            # Parse the response
-            response_body = json.loads(response['body'].read())
-            return response_body['content'][0]['text']
-
-        except Exception as e:
-            print(f"Error: {e}")
-            return None

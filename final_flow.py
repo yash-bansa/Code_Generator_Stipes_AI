@@ -329,28 +329,18 @@ async def master_planner_node(state: dict) -> dict:
         if req_rag_output is None:
             print("did not get rag output")
 
-        config_path = Path("./examples/sample_config.json")
-        if not config_path.exists():
-            logger.warning(f"Config file not found at {config_path}. Creating default config...")
-            config_path.parent.mkdir(parents=True, exist_ok=True)
-            default_config = {
-                "project_type": "python",
-                "framework": "general",
-                "main_files": ["main.py", "app.py"],
-                "config_files": ["config.py", "settings.py"]
-            }
-            with open(config_path, 'w') as f:
-                json.dump(default_config, f, indent=2)
-            logger.info(f"Created default config at: {config_path}")
+        default_config = {
+            "project_type": "python",
+            "framework": "general",
+            "main_files": [],
+            "config_files": []
+        }
 
-        with open(config_path, 'r') as f:
-            parsed_config = json.load(f)
-
-        state_obj.parsed_config = parsed_config
+        state_obj.parsed_config = default_config
 
 
         planner_input = MasterPlannerInput(
-            parsed_config=parsed_config,
+            parsed_config=default_config,
             user_question=state_obj.developer_task
         )
 
@@ -680,7 +670,7 @@ def should_end_after_validation(state: dict) -> str:
     else:
         # Validation failed - show results and get user feedback
         if state_obj.code_validator_result:
-            
+
 
             # Get user feedback for fixing validation issues
             user_feedback = "continue"

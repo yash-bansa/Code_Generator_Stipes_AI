@@ -16,32 +16,14 @@ class QueryRephraserAgent:
             with open(config_path , "r") as f:
                 config = yaml.safe_load(f)
             self.system_prompt = config["system_prompt"]
+            self.developer_task_prompt = config["developer_task_prompt"]
         except Exception as e:
             logger.error(f"[QueryRephraserAgent] Failed to load config: {e}")
             self.system_prompt = "You are a Query Rephraser Agent. (default fallback prompt)"
 
     async def enhance_query(self, input_data: QueryEnhancerInput) -> QueryEnhancerOutput:
         try:
-            prompt = f"""User Intent:
-{input_data.core_intent}
-
-Conversation Context:
-{input_data.context_notes or 'None'}
-
-Note :-
-- if some information or file name is asked to remove or not include then please remove that file name and information from the final developer task.
-- if you are asked to replace any file name by the user with a new name then the final task must have only the latest version of the file name in developer task.
-
-Important for final Developer task :-
-- the final developer task have only files which are included for analysis not excluded and removed files.
-- Make sure the complete file name should be their while creating developer task if provided in input.
-
-In case of a greeting ask the user to give the relavant queries by suggestions that the query can either be related to code change or config change .
-in case of greeting return the change_type as not valid and developer_task as not relevant.
-
-
-Return JSON with rephrased developer task, satisfaction flag, and any suggestions.
-"""
+            prompt = self.developer_task_prompt.format(core_intent=input_data.core_intent, context_notes = input_data.context_notes)
 
             response = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": prompt}],

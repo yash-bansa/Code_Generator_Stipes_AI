@@ -17,6 +17,7 @@ from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
 from config.agents_io import DocumentGeneratorInput, DocumentGeneratorOutput, SearchResult
 from utils.llm_client import llm_client
 import requests
+import yaml
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -231,6 +232,12 @@ class SimpleDocumentGenerator:
         self.llm_client = llm_client
         self.logger = logging.getLogger(__name__)
 
+        config_path = Path(__file__).parent / "document_generator_config.yaml"
+        with open(config_path , "r") as f:
+            config = yaml.safe_load(f)
+        self.enhanced_prompt = config['enhanced_prompt']
+        self.tool_selection_prompt = config['tool_selection_prompt']
+
     async def get_simpledatabase_obj(self):
         database_config = self.load_database_config()
         simple_database_obj = SimpleDatabase(database_config)
@@ -266,31 +273,7 @@ class SimpleDocumentGenerator:
         return enhanced_candidates
 
     def get_enhanced_prompt(self, query, enhanced_candidates):
-        prompt = f"""You are an expert code search assistant. Analyze these search results for: "{query}"
-
-        Candidates:
-        {json.dumps(enhanced_candidates, indent=2)}
-
-        Consider:
-        1. Functional relevance - does this code do what the user is looking for?
-        2. File/function naming - does the name suggest it's relevant?
-        3. Code context - based on the description, is this useful?
-        4. Architectural fit - is this the right type of component?
-
-        Return JSON with ranked results (most relevant first):
-        {{"data":
-        [
-            {{"index" : 0, "relevance": 9.2, "reason":"Perfect match - main function that directly addressess the query"}},
-            {{"index" : 3, "relevance" : 8.1, "reason":"Supporting component that would be useful for the task" }},
-            ...
-        ]
-        }}
-        Rules: Only include relevance >=7.0, order by relevance.
-        return only the results which are absolutely necessary to solve the problem.
-        U can return one or multiple results.
-        Important Instruction: Make sure that every relevance score should be between the range of 1 - 10.
-        """
-
+        prompt = self.enhanced_prompt.format(query=query, enhanced_candidates=json.dumps(enhanced_candidates, indent=2))
         return prompt
 
     async def _enhanced_llm_rerank(self, query: str, candidates:List[SearchResult]) -> List[SearchResult]:
@@ -411,54 +394,7 @@ class SimpleDocumentGenerator:
 
 
     def get_query_for_tool_selection(self, query):
-        prompt = f"""You are an intelligent tool selector. Analyze this developer user query and select the most appropriate search tool:
-
-            Query: "{query}"
-
-            Available Tools:
-            1. **identify_file** - Use when user specifies exact file/class/function names
-            - A single query can contain multiple file names, class names or function names.
-            - Return them in the parameters separated by commas.
-            - Usage: "find UserService class", "show login.py file", "get authenticate function"
-            - Example:
-                Query -> Add proper exceptions for the python file read_csv.py and transform.py.
-                        Also add docstrings for the class FeatureEngineering and function func1
-                {{
-                "tool_name" : "identify_file",
-                "parameters" : {{ "parameter_info" :
-                    [{{"type": "file", "name": "read_csv.py, transform.py"}}, {{"type": "class", "name":"FeatureEngineering"}}, {{"type": "function", "name":"func1"}}]
-                }},
-                "reasoning" : "Explain why this tool was chosen over the other tools for this query."
-                }}
-            Note :
-                In case if any of the file or class or function is not provided in the query. Dont include that in the parameters.
-                Only include what is present in the query.
-
-            2. **hybrid_search** - Use for complex queries requiring semantic understanding.
-            - Parameters: query(string), focus_area ("files"|"classes"|"functions"|"all")
-            - Examples: "authentication logic", "payment processing code", "error handling patterns"
-
-            3. **keyword_match** - Use for finding specific patterns or code snippets.
-            - Parameters: keywords (list of strings), search_scope ("all"|"files"|"classes"|"functions")
-            - Examples: "find all TODO comments", "search for database connections", "find error handling"
-
-            Decision Rules:
-            - Analyze, think before you choose the right tool for the job. I need higher accuracy.
-            - Do not use Hybrid search for all the user queries.
-            - If query contains specific names such as file names, classes , function names -> use identify_file
-            - If query is conceptual/semantic (logic, patterns, behavior) -> use hybrid_search
-            - If query asks for specific code patterns/keywords -> use keyword_match
-
-            Return JSON with your decision:
-            {{
-                "tool_name" : "identify_file|hybrid_search|keyword_match",
-                "parameters" : {{
-                    // tool-specific parameters based on the tool selected
-                }},
-                "reasoning" : "Explain why this tool was chosen over the other tools for this query."
-            }}
-
-            Analysis:"""
+        prompt = self.tool_selection_prompt.format(query=query)
         return prompt
 
     async def _analyze_query_for_tool_selection(self, query: str) -> Dict[str, Any]:

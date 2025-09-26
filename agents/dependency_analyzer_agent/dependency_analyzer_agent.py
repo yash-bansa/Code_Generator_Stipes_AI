@@ -6,12 +6,19 @@ from dotenv import load_dotenv
 from pathlib import Path
 from config.agents_io import DependencyAnalyzerInput, DependencyAnalyzerOutput
 from utils.llm_client import llm_client
+import yaml
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 class DependencyExtractorAgent:
+    def __init__(self):
+        config_path = Path(__file__).parent / "dependency_analyzer_config.yaml"
+        with open(config_path , "r") as f:
+            config = yaml.safe_load(f)
+        self.extract_table_names_prompt = config['extract_table_names_prompt']
+        self.config_generation_prompt = config['config_generation_prompt']
 
     async def read_config_file(self,config_path: str) -> Dict[str, Any]:
 
@@ -52,40 +59,10 @@ class DependencyExtractorAgent:
 
             print("here lie the feedback -----", feedback_config)
 
-            prompt = f"""
-You are a config generator agent. Analyze the provided configuration chunk based on the user query.
-You should also take into account the previously updated config from earlier analysis as feedback if available.
-Extract **only** the relevant information necessary to fulfill the user's query and adhere to the following schema:
-{{{{ "<key>" : "<value>", ....}}}}
-## Inputs:
-### User Query:
-{user_query}
-### Previously Updated Config (Feedback):
-{json.dumps(feedback_config, indent=2)}
-### Configuration Chunk:
-{json.dumps(config_chunk, indent=2)}
-## Task:
- - Use the inputs, including feedback and summary if available from previous updated config, to analyze necessary dependencies and configurations.
- - Generated an output JSON with the schema:
-   {{{{ "<key>" : "<value>", ....}}}}
- - Only include the relavant configuration required to fulfil the query.
- - The generated new config must have the same schema and casing which is followed in Configuration Chunk version so it can be easily integrated.
- - Do not new keys strictly in the updated config, so if you are creating a operation use same keys as Configuration Chunk.
- - please provide a summary of each object change ypu have done for a chunk so it will be used as feedback for next loop.
 
+            prompt = self.config_generation_prompt.format(user_query=user_query, feedback_config=json.dumps(feedback_config, indent=2),
+                                                          config_chunk = json.dumps(config_chunk, indent=2))
 
- output will be have two components :
- 1. Generated and output JSON with the schema
- 2. The summary of the config change
-
- output :- {{{{ "<key>" : "<value>", ....}}}} | summary
-
- - the output must be simple json based on Configuration Chunk only take information the feedback.
- - dont add keys in output as edits1 or edit2 just simple json.
-
- --- Generated only the JSON output below ----
-
-"""
             logger.debug(f"Generated prompt for LLM (chunk {chunk_idx +1}): {prompt}")
 
             try:
@@ -119,6 +96,7 @@ Extract **only** the relevant information necessary to fulfill the user's query 
 
         return final_updated_config
 
+
     async def extract_table_names_from_query(self, user_query: str) -> List[str]:
         """
         Extract table names from a user query using an LLM call.
@@ -130,19 +108,7 @@ Extract **only** the relevant information necessary to fulfill the user's query 
             List[str]: A list of table names extracted from the query.
         """
         try:
-            # Define the prompt to instruct the LLM effectively
-            prompt = f"""
-            You are a database expert.
-            - Please analyze the following user query and extract all table names mentioned in the query.
-            - Make sure that you return all the table names in the query separated by ",".
-            - Only use the table names which are used in the query, do not make something up.
-            - Always choose the table which has to be updated.
-            - if there are multiple tables return only the tables where modification has to be made.
-            - Do not include the source/reference tables.
-            - Do not include any extra information in the output.
-
-            Query: "{user_query}"
-            """
+            prompt = self.extract_table_names_prompt.format(user_query=user_query)
 
             # Make the API call to the LLM
             response = await llm_client.chat_completion(
@@ -163,7 +129,14 @@ Extract **only** the relevant information necessary to fulfill the user's query 
 
         predefined_tables = ["sample_config"]
 
-        filtered_tables = [table for table in input_tables if table in predefined_tables]
+        tables_list = []
+        for table in input_tables:
+            if '.json' in table:
+                tables_list.append(table.split(".")[0])
+            else:
+                tables_list.append(table)
+
+        filtered_tables = [table for table in tables_list if table in predefined_tables]
         print("filtered_tables",filtered_tables)
 
         formatted_paths = [f"./examples/{table}.json" for table in filtered_tables]

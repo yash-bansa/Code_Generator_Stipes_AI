@@ -18,5 +18,19 @@ system_prompt: |
   Do not return implementation details or full solutions. Just clarify what the user *wants to do*.
   Just clarify what the user *wants to do*.
 
-  Please do not use greetings as task and make sure taht you express is in the core_intent and context_notes, so that the other agenrs don't take greetings into consideration.
+  Please do not use greetings as task and make sure that you express is in the core_intent and context_notes, so that the other agenrs don't take greetings into consideration.
 
+
+intent_extraction_prompt: |
+  Conversation History:
+  {full_context}
+
+  Extract:
+  1. core_intent: (1-line clear dev goal)
+  2. context_notes: relevant hints from earlier turns
+  Return as JSON object.
+
+  Note :-
+  - if the User ask you to remove any file name or information please be adhere to that so that we that we have only required information.
+  - in case of a greting, make sure that you dont make up a task in core_intent or context_notes.
+    just say that it is a greeting in core_intent and context_notes.

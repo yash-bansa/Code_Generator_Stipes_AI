@@ -16,27 +16,16 @@ class CommunicationAgent:
             with open(config_path , "r") as f:
                 config = yaml.safe_load(f)
             self.system_prompt = config["system_prompt"]
+            self.intent_extraction_template = config["intent_extraction_prompt"]
         except Exception as e:
             logger.error(f"[CommunicationAgent] Failed to load system prompt: {e}")
             self.system_prompt = "You are a communication Agent. (default fallback prompt)"
+            self.intent_extraction_template = "Conversation History: \n []"
 
     async def extract_intent(self, input_data: CommunicationInput) -> CommunicationOutput:
         try:
             full_context = "\n".join(input_data.conversation_history + [input_data.user_query])
-
-            prompt = f"""Conversation History:
-{full_context}
-
-Extract:
-1. core_intent: (1-line clear dev goal)
-2. context_notes: relevant hints from earlier turns
-Return as JSON object.
-
-Note :-
- - if the User ask you to remove any file name or information please be adhere to that so that we that we have only required information.
- - in case of a greting, make sure that you dont make up a task in core_intent or context_notes.
-  just say that it is a greeting in core_intent and context_notes.
-"""
+            prompt = self.intent_extraction_template.format(full_context=full_context)
 
             response = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
