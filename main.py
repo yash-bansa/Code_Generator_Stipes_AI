@@ -395,8 +395,8 @@ def clean_completed_output(code_gen_response_dict, double_line):
             code_gen_response += "File content : " + "\n```diff\n"
             code_gen_response += file_detail["modified_content"] + double_line
             code_gen_response += "\n```" + double_line
-    print("#"*10)        
-    print(code_gen_response)        
+    print("#"*10)
+    print(code_gen_response)
     return code_gen_response
 
 def get_specific_response_for_display(response):
@@ -595,7 +595,7 @@ async def chat_endpoint(data: dict):
                     current_state.user_history.append(rejection_message)
 
                     original_query = current_state.latest_query
-                    enhanced_task += f"{original_query} \n\n--- USER FEEDBACK ---"
+                    enhanced_task = f"{original_query} \n\n--- USER FEEDBACK ---"
                     if rejection_reason:
                         enhanced_task += f"\nRejection reason : {rejection_reason}"
                     if additional_requirements:
